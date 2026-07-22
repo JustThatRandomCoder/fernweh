@@ -71,6 +71,20 @@ already-ended journey. Accepting an optional `rng: random.Random` (defaulting to
 instance) keeps affliction rolls testable — tests inject a fixed-value stand-in rather than
 depending on real randomness.
 
+### Ending generator (`ending.py`)
+
+`generate_ending(state)` composes 2–4 sentences from four independent axes — energy tier
+(rested/tired/exhausted, thresholds at 70/35), companion roster, active afflictions, and
+memory count — plus, for a failed run, a leading "the path goes on without you" sentence
+naming the season it ended in. Each axis is a small pure function
+(`_companion_phrase`, `_affliction_phrase`, `_memory_phrase`) returning a phrase or `None`,
+and `generate_ending` just joins whichever ones apply. This keeps the combinatorial space
+(a handful of variables × a few states each) generated rather than enumerated — there's no
+lookup table of hardcoded endings to keep in sync as new afflictions or companions appear.
+
+The "keepsakes" list is simply memories followed by companion names — deliberately not
+scored or ranked, since memories carry no gameplay weight, only atmosphere.
+
 ## Rendering & Animation
 
 *(to be filled in once the rendering scaffold, tween module, and particle system exist)*
