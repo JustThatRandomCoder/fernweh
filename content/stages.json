@@ -319,6 +319,163 @@
           "outcome": "You don't tell anyone why you stopped. Some things are worth keeping just for yourself."
         }
       ]
+    },
+    {
+      "id": 10,
+      "season": "autumn",
+      "scene": {
+        "description": "A forest track thick with fallen leaves, the canopy overhead gone amber and gold.",
+        "weather": "falling_leaves"
+      },
+      "situation": "The valley floor is quieter than summer let it be. Somewhere under the leaves, the path has gone soft and uncertain.",
+      "choices": [
+        {
+          "id": "autumn_10_careful",
+          "text": "Pick your way through slowly, watching your footing.",
+          "effects": { "energy": -9 },
+          "outcome": "It's slow going, but you never once lose the path beneath the drift of leaves."
+        },
+        {
+          "id": "autumn_10_hurry",
+          "text": "Hurry through before the light goes.",
+          "effects": { "energy": -12, "supplies": -1 },
+          "affliction_chance": { "ill": 0.1 },
+          "outcome": "You misjudge a root twice and catch yourself both times. The light holds, barely."
+        },
+        {
+          "id": "autumn_10_gather",
+          "text": "Stop to gather a handful of fallen leaves.",
+          "effects": { "energy": -5 },
+          "memory": "A single amber leaf, pressed flat between two pages.",
+          "outcome": "It's a small, foolish thing to carry. You carry it anyway."
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "season": "autumn",
+      "scene": {
+        "description": "A woodcutter's clearing, smoke rising thin from a low chimney.",
+        "weather": "overcast"
+      },
+      "situation": "An old man is stacking wood with the unhurried care of someone who has nowhere left to be. He nods at you like he already knows why you've stopped.",
+      "choices": [
+        {
+          "id": "autumn_11_invite",
+          "text": "Ask if he'd walk with you a while.",
+          "effects": { "supplies": -3 },
+          "companion": {
+            "id": "emet",
+            "name": "Emet",
+            "one_line_trait": "slow to speak, notices everything"
+          },
+          "outcome": "He looks at the woodpile, then at the road, and sets down the axe. \"About time somebody asked,\" he says."
+        },
+        {
+          "id": "autumn_11_help",
+          "text": "Help him finish stacking the wood before moving on.",
+          "effects": { "energy": -6, "supplies": 4 },
+          "outcome": "He thanks you with a sack of provisions rather than words, which suits you both fine."
+        },
+        {
+          "id": "autumn_11_pass",
+          "text": "Nod back and keep to the road.",
+          "effects": { "energy": -3 },
+          "outcome": "The smoke from his chimney is the last thing you see before the trees close back in."
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "season": "autumn",
+      "scene": {
+        "description": "A harvested field, stubble gold under a low, cooling sun.",
+        "weather": "clear"
+      },
+      "situation": "The field has already given up its harvest. What's left is quiet and spent, and the road cuts straight across it toward a treeline turning bare.",
+      "choices": [
+        {
+          "id": "autumn_12_rest",
+          "text": "Make an early camp at the field's edge.",
+          "effects": { "energy": 14, "supplies": -3 },
+          "cures": ["exhausted"],
+          "outcome": "The stubble is dry and the ground is flat, and you sleep better than the setting deserves."
+        },
+        {
+          "id": "autumn_12_glean",
+          "text": "Glean what the harvest left behind.",
+          "effects": { "supplies": 6, "energy": -3 },
+          "outcome": "It's not much, but it's honest food, and nobody begrudges you for taking it."
+        },
+        {
+          "id": "autumn_12_push",
+          "text": "Cross the field quickly and keep moving.",
+          "effects": { "energy": -8 },
+          "outcome": "The treeline swallows the last of the daylight not long after you reach it."
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "season": "autumn",
+      "scene": {
+        "description": "A narrow valley road, cold mist pooling low between the hills.",
+        "weather": "mist"
+      },
+      "situation": "The mist hasn't lifted all morning, and it's harder to shake the tiredness than it should be. Somewhere ahead, a healer's lantern is lit outside a small stone house.",
+      "choices": [
+        {
+          "id": "autumn_13_healer",
+          "text": "Stop at the healer's house.",
+          "effects": { "supplies": -6, "energy": 6 },
+          "cures": ["ill", "exhausted"],
+          "outcome": "She doesn't ask many questions, just puts a cup of something bitter in your hands and waits until it's gone."
+        },
+        {
+          "id": "autumn_13_rest_roadside",
+          "text": "Rest by the roadside instead.",
+          "effects": { "energy": 8, "supplies": -2 },
+          "outcome": "It's not the same as a proper bed, but the mist thins a little while you sit, and that helps more than expected."
+        },
+        {
+          "id": "autumn_13_push",
+          "text": "Push through the mist without stopping.",
+          "effects": { "energy": -11 },
+          "unavailable_if": "ill",
+          "unavailable_reason": "you can barely keep pace as it is",
+          "outcome": "The mist never really breaks. You come out the other side more tired than the distance explains."
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "season": "autumn",
+      "scene": {
+        "description": "The last bare trees before the road climbs toward higher, colder ground.",
+        "weather": "cold_wind"
+      },
+      "situation": "The wind carries the first real edge of winter in it. Whatever's left in your pack will need to last a while yet.",
+      "choices": [
+        {
+          "id": "autumn_14_prepare",
+          "text": "Spend the day preparing gear for the cold ahead.",
+          "effects": { "supplies": -8, "energy": -2 },
+          "outcome": "It costs you a day you'd rather not lose, but your pack is heavier with things that will matter soon."
+        },
+        {
+          "id": "autumn_14_press",
+          "text": "Press on toward the high ground before the weather turns.",
+          "effects": { "energy": -10 },
+          "outcome": "You beat the worst of it, but only just. The first flurries catch you within sight of the ridge."
+        },
+        {
+          "id": "autumn_14_look_back",
+          "text": "Stop and look back at the road already walked.",
+          "effects": { "energy": -2 },
+          "memory": "The whole autumn valley, seen once more before the climb.",
+          "outcome": "From here the whole valley looks smaller than it felt at the time. You turn back to the climb without regret."
+        }
+      ]
     }
   ]
 }
