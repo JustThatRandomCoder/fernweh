@@ -108,8 +108,13 @@ before they'd otherwise surface as a silent no-op during play.
 from the stage index (`stages.stage_season`) — this catches a copy-paste error where a
 stage is filed under the wrong season heading.
 
-Only 3 stages exist so far (milestone 4 — proving the schema); the full 20-stage script is
-written in a later milestone.
+All 20 stages (5 per season) are now written. Four companions are recruitable across the
+journey — Mira (stage 1), Sable (stage 4), Talia (stage 6), Emet (stage 11), Wren (stage
+18) — five opportunities for four slots, so a player who wants a full company has to pass
+on one. Frostbitten risk is confined to the winter stages (15-19) and content validation
+enforces that at load time; Ill risk appears both as a direct per-choice consequence (e.g.
+a risky shortcut) and will additionally be rolled per-stage once `game.py` wires in
+`afflictions.roll_ill` at the start of a stage.
 
 ## Testing
 
