@@ -87,7 +87,36 @@ scored or ranked, since memories carry no gameplay weight, only atmosphere.
 
 ## Rendering & Animation
 
-*(to be filled in once the rendering scaffold, tween module, and particle system exist)*
+**Scenes (`scenes.py`).** Every season maps to a `Palette` (sky top/bottom, ground, text
+color). `draw_scene` renders a vertical sky gradient over a ground band using only
+`pygame.draw` primitives — there are no image assets anywhere in this project. A single
+`desaturation` parameter (0–1) pulls every color toward grey; `game.py` derives this from
+`afflictions.hardship_level` divided by a cap, so visual harshness scales with active
+afflictions generically rather than through per-affliction rendering branches.
+
+**Particles (`particles.py`).** One `ParticleSystem` class parameterized by a
+`ParticleKind` (color, size range, fall speed range, horizontal drift range, count) covers
+all three weather effects (`drizzle`, `snow`, `falling_leaves`). Adding a new weather effect
+is adding one `ParticleKind` entry to `WEATHER_KINDS`, not a new class. Particles that fall
+past the bottom (or drift past the sides) are respawned at the top rather than removed and
+recreated, so the system runs at a constant particle count indefinitely. `game.py` rebuilds
+the `ParticleSystem` only when the stage's weather changes (tracked via `_synced_stage_index`),
+not every frame.
+
+**Text (`ui.py`).** `wrap_text`/`draw_wrapped_text` do simple greedy word-wrapping against a
+`pygame.font.Font`'s measured width — this is the rendering primitive later milestones build
+the typewriter reveal on top of, rather than a placeholder to be thrown away.
+
+**Tweening (`tween.py`).** A small hand-rolled easing module (`linear` through
+`ease_in_out_cubic`) plus a `Tween` class that advances a float value over a duration and
+fires an `on_complete` callback once. No pygame import — purely math, which is why it's
+unit-tested directly rather than through rendered output. This is what scene crossfades and
+UI hover/press animation are built on, instead of pulling in an external animation library.
+
+**Game loop (`game.py`).** `Game` owns the pygame window, clock, loaded stage content, and
+the current `GameState`. The loop separates `_update(dt)` (particle motion, and later tween
+advancement) from `_draw()` (season background, particles, then text) — this keeps a clear
+seam for adding animation state without tangling it into drawing code.
 
 ## Data Format
 
