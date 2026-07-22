@@ -476,6 +476,162 @@
           "outcome": "From here the whole valley looks smaller than it felt at the time. You turn back to the climb without regret."
         }
       ]
+    },
+    {
+      "id": 15,
+      "season": "winter",
+      "scene": {
+        "description": "The first real snowfall, settling quiet and white over a narrow mountain pass.",
+        "weather": "snow"
+      },
+      "situation": "The pass is exposed to the wind, and the snow is already deep enough to slow you down. A half-collapsed shelter offers some cover, if you're willing to lose the time.",
+      "choices": [
+        {
+          "id": "winter_15_shelter",
+          "text": "Take the time to shelter properly from the wind.",
+          "effects": { "energy": 6, "supplies": -3 },
+          "outcome": "It's cramped and cold, but the walls hold the worst of the wind out, and that's enough."
+        },
+        {
+          "id": "winter_15_push",
+          "text": "Keep moving without stopping for shelter.",
+          "effects": { "energy": -12 },
+          "affliction_chance": { "frostbitten": 0.2 },
+          "outcome": "The wind finds every gap in your coat. By the far side of the pass, your fingers have stopped answering you properly."
+        },
+        {
+          "id": "winter_15_quick_cover",
+          "text": "Duck behind a rock ledge just long enough to catch your breath.",
+          "effects": { "energy": -4, "supplies": -1 },
+          "outcome": "It's not real shelter, but it's something. You go back out into the snow a little steadier."
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "season": "winter",
+      "scene": {
+        "description": "A frozen creek bed threading between snow-heavy pines.",
+        "weather": "snow"
+      },
+      "situation": "The cold has settled into your hands more than you'd like to admit. Somewhere ahead, smoke suggests a fire, if you're willing to go looking for it.",
+      "choices": [
+        {
+          "id": "winter_16_fire",
+          "text": "Find the fire and warm your hands properly.",
+          "effects": { "energy": 10, "supplies": -2 },
+          "cures": ["frostbitten"],
+          "outcome": "Whoever built it is long gone, but the fire's still going. You sit with it longer than you mean to."
+        },
+        {
+          "id": "winter_16_ignore",
+          "text": "Keep walking and ignore the cold in your hands.",
+          "effects": { "energy": -9 },
+          "affliction_chance": { "frostbitten": 0.15 },
+          "outcome": "It's easier to ignore than it should be, which is its own kind of warning."
+        },
+        {
+          "id": "winter_16_wrap",
+          "text": "Stop just long enough to wrap your hands better.",
+          "effects": { "energy": -5, "supplies": -1 },
+          "outcome": "It's a small fix, but it buys you the rest of the day without the cold winning outright."
+        }
+      ]
+    },
+    {
+      "id": 17,
+      "season": "winter",
+      "scene": {
+        "description": "A near-empty supply depot buried in drifted snow, shelves mostly bare.",
+        "weather": "snow"
+      },
+      "situation": "What's left in your pack is thin, and the depot ahead doesn't look like it has much to spare either. Whatever you decide here, it will need to carry you further than it looks capable of.",
+      "choices": [
+        {
+          "id": "winter_17_ration",
+          "text": "Ration carefully and move on without stopping.",
+          "effects": { "energy": -8, "supplies": -3 },
+          "outcome": "You make it stretch further than seems fair. It won't last forever, but it lasts today."
+        },
+        {
+          "id": "winter_17_beg",
+          "text": "Ask the depot keeper for whatever charity allows.",
+          "effects": { "supplies": 5, "energy": -2 },
+          "outcome": "He gives you less than you hoped and more than he can afford, and neither of you mentions it again."
+        },
+        {
+          "id": "winter_17_rest",
+          "text": "Rest here a full day before continuing.",
+          "effects": { "energy": 12, "supplies": -5 },
+          "cures": ["exhausted"],
+          "outcome": "It costs you supplies you can't really spare, but you leave standing straighter than you arrived."
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "season": "winter",
+      "scene": {
+        "description": "A quiet frozen lake, the ice thick enough to walk, footprints of someone else already crossing it.",
+        "weather": "snow"
+      },
+      "situation": "A figure is crouched at the far edge of the ice, mending a torn pack with fingers that look nearly as cold as yours. She doesn't look up until you're close.",
+      "choices": [
+        {
+          "id": "winter_18_invite",
+          "text": "Offer to travel the last stretch together.",
+          "effects": { "supplies": -3 },
+          "companion": {
+            "id": "wren",
+            "name": "Wren",
+            "one_line_trait": "quiet, but stays close when it matters"
+          },
+          "outcome": "\"Wren,\" she says, tying off the last stitch. \"I wasn't planning on company, but I won't say no to it.\""
+        },
+        {
+          "id": "winter_18_help_mend",
+          "text": "Help her mend the pack before moving on.",
+          "effects": { "energy": -4, "supplies": -2 },
+          "memory": "A stranger's torn pack, and the cold, careful work of fixing it together.",
+          "outcome": "Between the two of you it doesn't take long. She thanks you plainly and turns back to her own road."
+        },
+        {
+          "id": "winter_18_cross",
+          "text": "Cross the ice and leave her to her mending.",
+          "effects": { "energy": -6 },
+          "outcome": "The ice holds, same as it held for her. By the far shore, she's already out of sight behind you."
+        }
+      ]
+    },
+    {
+      "id": 19,
+      "season": "winter",
+      "scene": {
+        "description": "The road's end, a quiet white field opening where the path simply stops.",
+        "weather": "snow"
+      },
+      "situation": "There's no gate, no marker, nothing to announce it — the road just runs out into open snow. Whatever this journey has been, it ends somewhere in this field.",
+      "choices": [
+        {
+          "id": "winter_19_rest_first",
+          "text": "Sit down at the road's end before going any further.",
+          "effects": { "energy": 8, "supplies": -2 },
+          "outcome": "You let yourself stop, properly, for what feels like the first time since spring. The snow keeps falling regardless."
+        },
+        {
+          "id": "winter_19_last_look",
+          "text": "Turn and look back the way you came.",
+          "effects": { "energy": -2 },
+          "memory": "The whole road, spring to winter, seen once more before it's only ever behind you.",
+          "outcome": "From here you can't see the beginning anymore. You're not sure you need to."
+        },
+        {
+          "id": "winter_19_walk_on",
+          "text": "Keep walking into the snow, past where the road gave out.",
+          "effects": { "energy": -6 },
+          "outcome": "There's nothing marking an end here, so you simply stop walking when it feels like enough. It does, eventually."
+        }
+      ]
     }
   ]
 }

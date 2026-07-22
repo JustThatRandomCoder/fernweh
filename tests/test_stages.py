@@ -46,9 +46,27 @@ def _choice(**overrides) -> Choice:
 
 def test_loads_real_content_file() -> None:
     stages = load_stages()
-    assert len(stages) >= 3
+    assert len(stages) == 20
     assert stages[0].index == 0
     assert stages[0].season == "spring"
+
+
+def test_full_content_has_five_stages_per_season() -> None:
+    stages = load_stages()
+    season_counts: dict[str, int] = {}
+    for stage in stages:
+        season_counts[stage.season] = season_counts.get(stage.season, 0) + 1
+    assert season_counts == {"spring": 5, "summer": 5, "autumn": 5, "winter": 5}
+
+
+def test_companion_ids_are_unique_across_content() -> None:
+    companion_ids = [
+        choice.companion["id"]
+        for stage in load_stages()
+        for choice in stage.choices
+        if choice.companion
+    ]
+    assert len(companion_ids) == len(set(companion_ids))
 
 
 def test_every_choice_uses_valid_effect_keys() -> None:
