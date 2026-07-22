@@ -38,6 +38,39 @@ whenever a resource clamps to 0 — there's no separate "check failure" step the
 remember to run. Once `ended` is `True`, further resource deltas and `advance_stage()` calls
 are no-ops, so a stray update after the journey ends can't resurrect it or skip stages.
 
+### Afflictions (`afflictions.py`)
+
+Three afflictions exist: **Exhausted** (energy < 25), **Ill** (a probabilistic roll each
+stage, weighted higher — 25% vs. a 5% baseline — when supplies are below 30), and
+**Frostbitten** (winter-only, triggered by specific choices via their `affliction_chance`,
+validated by content loading so it can't be attached to a non-winter stage).
+
+Rather than hardcoding "if exhausted, do X visual thing" and "if ill, do Y visual thing",
+every affliction's mechanical effect is expressed as a drain multiplier
+(`energy_drain_multiplier`, `supplies_drain_multiplier`) and the visual/animation harshness
+is driven by a single derived `hardship_level` (currently just the count of active
+afflictions). This satisfies the design requirement that hardship be a *general* system, not
+a set of per-affliction visual hacks — a new affliction only needs to plug into the
+multiplier functions to affect drain, and hardship level picks it up automatically.
+
+Exhausted does not clear itself once energy recovers — the design calls for it to take a
+deliberate rest/recovery choice to cure (via a choice's `cures` list), so it persists across
+stages until content removes it. This mirrors the real cost being asked of the player: you
+can't outrun exhaustion by resting one one-off numbers tick, you have to choose to address
+it.
+
+### Choice resolution (`stages.apply_choice`)
+
+`apply_choice(state, choice, rng)` is the single function that turns "player picked this
+choice" into a fully resolved `GameState` update, in a fixed order: base per-season/per-
+companion drain first (via `afflictions.base_stage_drain`), then the choice's own resource
+effects, then memory/companion pickups, cures, and affliction rolls, then
+`state.advance_stage()`. It exits early at any point `state.ended` becomes true, so a fatal
+drain from the base stage cost stops the rest of the choice's effects from applying to an
+already-ended journey. Accepting an optional `rng: random.Random` (defaulting to a fresh
+instance) keeps affliction rolls testable — tests inject a fixed-value stand-in rather than
+depending on real randomness.
+
 ## Rendering & Animation
 
 *(to be filled in once the rendering scaffold, tween module, and particle system exist)*
