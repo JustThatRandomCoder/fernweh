@@ -1,2 +1,10 @@
 GAME-PLAN.md
 GAME-DESIGN.md
+
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+.DS_Store
