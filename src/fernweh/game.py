@@ -8,6 +8,7 @@ import pygame
 
 from fernweh import scenes, ui
 from fernweh.afflictions import hardship_level
+from fernweh.particles import ParticleSystem, particle_kind_for_weather
 from fernweh.stages import load_stages
 from fernweh.state import GameState
 
@@ -30,13 +31,17 @@ class Game:
         self.stages = load_stages()
         self.state = GameState()
         self.running = True
+        self.particle_system: ParticleSystem | None = None
+        self._synced_stage_index: int | None = None
+        self._sync_particle_system()
 
     def run(self) -> None:
         """Run the main loop until the window is closed."""
         while self.running:
+            dt = self.clock.tick(FPS) / 1000
             self._handle_events()
+            self._update(dt)
             self._draw()
-            self.clock.tick(FPS)
         pygame.quit()
 
     def _handle_events(self) -> None:
@@ -44,9 +49,27 @@ class Game:
             if event.type == pygame.QUIT:
                 self.running = False
 
+    def _update(self, dt: float) -> None:
+        self._sync_particle_system()
+        if self.particle_system:
+            self.particle_system.update(dt)
+
+    def _sync_particle_system(self) -> None:
+        if self.state.stage_index == self._synced_stage_index:
+            return
+        self._synced_stage_index = self.state.stage_index
+        stage = self.stages[self.state.stage_index]
+        kind_name = particle_kind_for_weather(stage.scene["weather"])
+        self.particle_system = (
+            ParticleSystem(kind_name, *WINDOW_SIZE, rng=self.rng) if kind_name else None
+        )
+
     def _draw(self) -> None:
         desaturation = hardship_level(self.state) / MAX_DESATURATION_AFFLICTIONS
         scenes.draw_scene(self.screen, self.state.season, desaturation)
+
+        if self.particle_system:
+            self.particle_system.draw(self.screen)
 
         stage = self.stages[self.state.stage_index]
         text_rect = pygame.Rect(MARGIN, MARGIN, WINDOW_SIZE[0] - 2 * MARGIN, 200)
