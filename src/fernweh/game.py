@@ -9,7 +9,7 @@ import pygame
 from fernweh import scenes, ui
 from fernweh.afflictions import hardship_level
 from fernweh.particles import ParticleSystem, particle_kind_for_weather
-from fernweh.stages import load_stages
+from fernweh.stages import Choice, apply_choice, choice_is_available, load_stages
 from fernweh.state import GameState
 from fernweh.tween import Tween, ease_out_quad
 
@@ -19,6 +19,9 @@ FPS = 60
 MAX_DESATURATION_AFFLICTIONS = 4
 TRANSITION_DURATION = 0.6
 TRANSITION_START_ALPHA = 255
+TEXT_AREA_HEIGHT = 200
+BUTTON_HEIGHT = 56
+BUTTON_SPACING = 16
 
 
 class Game:
@@ -36,6 +39,8 @@ class Game:
         self.running = True
         self.particle_system: ParticleSystem | None = None
         self.typewriter = ui.TypewriterText("")
+        self.choices: list[Choice] = []
+        self.buttons: list[ui.ChoiceButton] = []
         self._synced_stage_index: int | None = None
         self._previous_frame: pygame.Surface | None = None
         self._transition: Tween | None = None
@@ -54,9 +59,19 @@ class Game:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
-            elif event.type in (pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN):
+            elif event.type == pygame.KEYDOWN and not self.typewriter.done:
+                self.typewriter.skip()
+            elif event.type == pygame.MOUSEBUTTONDOWN:
                 if not self.typewriter.done:
                     self.typewriter.skip()
+                else:
+                    self._handle_choice_click(event.pos)
+
+    def _handle_choice_click(self, pos: tuple[int, int]) -> None:
+        for button, choice in zip(self.buttons, self.choices):
+            if button.contains(pos):
+                apply_choice(self.state, choice, self.rng)
+                return
 
     def _update(self, dt: float) -> None:
         self._sync_stage()
@@ -65,6 +80,10 @@ class Game:
         if self._transition:
             self._transition.update(dt)
         self.typewriter.update(dt, hardship_level(self.state))
+        mouse_pos = pygame.mouse.get_pos()
+        mouse_down = pygame.mouse.get_pressed()[0]
+        for button in self.buttons:
+            button.update(dt, mouse_pos, mouse_down)
 
     def _sync_stage(self) -> None:
         if self.state.stage_index == self._synced_stage_index:
@@ -82,6 +101,19 @@ class Game:
             ParticleSystem(kind_name, *WINDOW_SIZE, rng=self.rng) if kind_name else None
         )
         self.typewriter.reset(stage.situation)
+        self._build_buttons(stage.choices)
+
+    def _build_buttons(self, choices: tuple[Choice, ...]) -> None:
+        self.choices = [] if self.state.ended else list(choices)
+        self.buttons = []
+        top = MARGIN + TEXT_AREA_HEIGHT
+        for choice in self.choices:
+            rect = pygame.Rect(MARGIN, top, WINDOW_SIZE[0] - 2 * MARGIN, BUTTON_HEIGHT)
+            available = choice_is_available(choice, self.state.afflictions)
+            self.buttons.append(
+                ui.ChoiceButton(rect, choice.text, available, choice.unavailable_reason)
+            )
+            top += BUTTON_HEIGHT + BUTTON_SPACING
 
     def _draw(self) -> None:
         desaturation = hardship_level(self.state) / MAX_DESATURATION_AFFLICTIONS
@@ -90,11 +122,15 @@ class Game:
         if self.particle_system:
             self.particle_system.draw(self.screen)
 
-        text_rect = pygame.Rect(MARGIN, MARGIN, WINDOW_SIZE[0] - 2 * MARGIN, 200)
+        text_rect = pygame.Rect(MARGIN, MARGIN, WINDOW_SIZE[0] - 2 * MARGIN, TEXT_AREA_HEIGHT)
         palette = scenes.palette_for_season(self.state.season)
         ui.draw_wrapped_text(
             self.screen, self.typewriter.visible_text(), self.font, palette.text, text_rect
         )
+
+        if self.typewriter.done:
+            for button in self.buttons:
+                button.draw(self.screen, self.font, palette)
 
         if self._transition and not self._transition.done and self._previous_frame:
             self._previous_frame.set_alpha(round(self._transition.value))

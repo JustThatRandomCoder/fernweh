@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import pygame
 
+from fernweh.scenes import Palette
+from fernweh.tween import ease_out_quad
+
 Color = tuple[int, int, int]
 
 
@@ -87,3 +90,71 @@ class TypewriterText:
         """Reveal the remaining text immediately."""
         self.revealed = len(self.text)
         self.done = True
+
+
+class ChoiceButton:
+    """A clickable choice button with eased hover/press feedback.
+
+    Hover/press state is continuous (the mouse can enter or leave at any
+    moment), so rather than one-shot `Tween` instances, an elapsed-time value
+    is nudged toward 0 or `HOVER_ANIMATION_DURATION` each frame and the same
+    `ease_out_quad` used for scene transitions maps it to a scale factor.
+    """
+
+    HOVER_ANIMATION_DURATION = 0.15
+    HOVER_SCALE = 1.03
+    PRESS_SCALE = 0.97
+
+    def __init__(
+        self,
+        rect: pygame.Rect,
+        text: str,
+        available: bool = True,
+        unavailable_reason: str | None = None,
+    ) -> None:
+        self.rect = rect
+        self.text = text
+        self.available = available
+        self.unavailable_reason = unavailable_reason
+        self.pressed = False
+        self._hover_elapsed = 0.0
+
+    def update(self, dt: float, mouse_pos: tuple[int, int], mouse_down: bool) -> None:
+        """Advance hover/press animation state given the current mouse input."""
+        hovering = self.available and self.rect.collidepoint(mouse_pos)
+        direction = 1.0 if hovering else -1.0
+        self._hover_elapsed = max(
+            0.0, min(self.HOVER_ANIMATION_DURATION, self._hover_elapsed + direction * dt)
+        )
+        self.pressed = hovering and mouse_down
+
+    def contains(self, pos: tuple[int, int]) -> bool:
+        """Whether `pos` is inside this button and it can currently be chosen."""
+        return self.available and self.rect.collidepoint(pos)
+
+    @property
+    def scale(self) -> float:
+        """Current visual scale factor from hover/press animation."""
+        hover_t = ease_out_quad(self._hover_elapsed / self.HOVER_ANIMATION_DURATION)
+        scale = 1.0 + (self.HOVER_SCALE - 1.0) * hover_t
+        return scale * self.PRESS_SCALE if self.pressed else scale
+
+    def draw(self, surface: pygame.Surface, font: pygame.font.Font, palette: Palette) -> None:
+        """Draw the button, its label, and (if unavailable) the reason why."""
+        scale = self.scale
+        scaled_rect = self.rect.inflate(
+            round(self.rect.width * (scale - 1)), round(self.rect.height * (scale - 1))
+        )
+        text_color = palette.text if self.available else _dim(palette.text)
+        pygame.draw.rect(surface, palette.ground, scaled_rect, border_radius=10)
+        pygame.draw.rect(surface, text_color, scaled_rect, width=1, border_radius=10)
+
+        label = self.text
+        if not self.available and self.unavailable_reason:
+            label = f"{self.text} — {self.unavailable_reason}"
+        rendered = font.render(label, True, text_color)
+        surface.blit(rendered, rendered.get_rect(center=scaled_rect.center))
+
+
+def _dim(color: Color) -> Color:
+    return tuple(round(channel * 0.5) for channel in color)
