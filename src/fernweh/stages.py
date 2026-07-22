@@ -8,11 +8,13 @@ it has no pygame import and no knowledge of rendering.
 from __future__ import annotations
 
 import json
+import random
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from fernweh.state import SEASONS, STAGES_PER_SEASON
+from fernweh.afflictions import base_stage_drain, maybe_trigger_exhausted
+from fernweh.state import SEASONS, STAGES_PER_SEASON, Companion, GameState
 
 VALID_EFFECT_KEYS = frozenset({"energy", "supplies"})
 VALID_AFFLICTIONS = frozenset({"exhausted", "ill", "frostbitten"})
@@ -71,8 +73,46 @@ def choice_is_available(choice: Choice, active_afflictions: set[str]) -> bool:
     return choice.unavailable_if is None or choice.unavailable_if not in active_afflictions
 
 
+def apply_choice(state: GameState, choice: Choice, rng: random.Random | None = None) -> None:
+    """Resolve one selected choice against `state` and advance to the next stage.
+
+    Order of operations: base per-stage drain first (so afflictions reflect the
+    stage just lived through), then the choice's own effects, memory/companion
+    pickups, cures, and affliction rolls, then advance the stage index. A no-op
+    if the journey has already ended.
+    """
+    if state.ended:
+        return
+
+    rng = rng or random.Random()
+
+    energy_drain, supplies_drain = base_stage_drain(state)
+    state.apply_energy_delta(-energy_drain)
+    state.apply_supplies_delta(-supplies_drain)
+    if state.ended:
+        return
+
+    state.apply_energy_delta(choice.effects.get("energy", 0))
+    state.apply_supplies_delta(choice.effects.get("supplies", 0))
+    if state.ended:
+        return
+
+    if choice.memory:
+        state.add_memory(choice.memory)
+    if choice.companion:
+        state.add_companion(Companion(joined_at_stage=state.stage_index, **choice.companion))
+    for affliction_id in choice.cures:
+        state.remove_affliction(affliction_id)
+    for affliction_id, chance in choice.affliction_chance.items():
+        if rng.random() < chance:
+            state.add_affliction(affliction_id)
+
+    maybe_trigger_exhausted(state)
+    state.advance_stage()
+
+
 def _parse_stage(raw: dict[str, Any]) -> Stage:
-    choices = tuple(_parse_choice(c) for c in raw["choices"])
+    choices = tuple(_parse_choice(c, raw["season"]) for c in raw["choices"])
     if not 2 <= len(choices) <= 3:
         raise ContentError(f"stage {raw.get('id')} must have 2-3 choices, got {len(choices)}")
     expected_season = stage_season(raw["id"])
@@ -89,7 +129,7 @@ def _parse_stage(raw: dict[str, Any]) -> Stage:
     )
 
 
-def _parse_choice(raw: dict[str, Any]) -> Choice:
+def _parse_choice(raw: dict[str, Any], season: str) -> Choice:
     effects = raw.get("effects", {})
     for key in effects:
         if key not in VALID_EFFECT_KEYS:
@@ -100,6 +140,10 @@ def _parse_choice(raw: dict[str, Any]) -> Choice:
         if affliction_id not in VALID_AFFLICTIONS:
             raise ContentError(
                 f"choice {raw.get('id')} references unknown affliction '{affliction_id}'"
+            )
+        if affliction_id == "frostbitten" and season != "winter":
+            raise ContentError(
+                f"choice {raw.get('id')} can only risk frostbitten in a winter stage"
             )
 
     cures = tuple(raw.get("cures", ()))

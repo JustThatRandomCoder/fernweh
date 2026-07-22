@@ -1,4 +1,4 @@
-"""Tests for stage content loading and validation."""
+"""Tests for stage content loading, validation, and choice resolution."""
 
 import json
 
@@ -6,12 +6,42 @@ import pytest
 from fernweh.stages import (
     VALID_AFFLICTIONS,
     VALID_EFFECT_KEYS,
+    Choice,
     ContentError,
     DEFAULT_CONTENT_PATH,
+    apply_choice,
     choice_is_available,
     load_stages,
     stage_season,
 )
+from fernweh.state import GameState
+
+
+class _FixedRandom:
+    """A stand-in rng whose `.random()` always returns the given value."""
+
+    def __init__(self, value: float) -> None:
+        self._value = value
+
+    def random(self) -> float:
+        return self._value
+
+
+def _choice(**overrides) -> Choice:
+    defaults = dict(
+        id="c",
+        text="text",
+        outcome="outcome",
+        effects={},
+        affliction_chance={},
+        cures=(),
+        memory=None,
+        companion=None,
+        unavailable_if=None,
+        unavailable_reason=None,
+    )
+    defaults.update(overrides)
+    return Choice(**defaults)
 
 
 def test_loads_real_content_file() -> None:
@@ -110,3 +140,85 @@ def test_choice_availability_depends_on_afflictions() -> None:
 
 def test_default_content_path_exists() -> None:
     assert DEFAULT_CONTENT_PATH.exists()
+
+
+def test_rejects_frostbitten_outside_winter(tmp_path) -> None:
+    bad_content = {
+        "stages": [
+            {
+                "id": 0,
+                "season": "spring",
+                "scene": {"description": "x", "weather": "clear"},
+                "situation": "x",
+                "choices": [
+                    {
+                        "id": "a",
+                        "text": "a",
+                        "outcome": "a",
+                        "effects": {},
+                        "affliction_chance": {"frostbitten": 0.5},
+                    },
+                    {"id": "b", "text": "b", "outcome": "b", "effects": {}},
+                ],
+            }
+        ]
+    }
+    path = tmp_path / "bad.json"
+    path.write_text(json.dumps(bad_content))
+    with pytest.raises(ContentError):
+        load_stages(path)
+
+
+def test_apply_choice_advances_stage_and_applies_effects() -> None:
+    state = GameState(stage_index=0, energy=100, supplies=100)
+    choice = _choice(effects={"energy": -5, "supplies": -3})
+    apply_choice(state, choice, rng=_FixedRandom(1.0))
+    assert state.stage_index == 1
+    assert state.energy < 100
+    assert state.supplies < 100
+
+
+def test_apply_choice_crosses_season_boundary() -> None:
+    state = GameState(stage_index=4, energy=100, supplies=100)
+    apply_choice(state, _choice(), rng=_FixedRandom(1.0))
+    assert state.stage_index == 5
+    assert state.season == "summer"
+
+
+def test_apply_choice_completes_journey_on_final_stage() -> None:
+    state = GameState(stage_index=19, energy=100, supplies=100)
+    apply_choice(state, _choice(), rng=_FixedRandom(1.0))
+    assert state.is_complete is True
+
+
+def test_apply_choice_triggers_failure_and_stops_progression() -> None:
+    state = GameState(stage_index=0, energy=3, supplies=100)
+    apply_choice(state, _choice(effects={"energy": -3}), rng=_FixedRandom(1.0))
+    assert state.is_failed is True
+    assert state.stage_index == 0
+
+
+def test_apply_choice_is_noop_once_ended() -> None:
+    state = GameState(stage_index=3, ended=True, end_reason="failure")
+    apply_choice(state, _choice(effects={"energy": -10}), rng=_FixedRandom(1.0))
+    assert state.stage_index == 3
+
+
+def test_apply_choice_adds_memory_and_companion() -> None:
+    state = GameState(stage_index=0, energy=100, supplies=100)
+    choice = _choice(
+        memory="a smooth river stone",
+        companion={"id": "mira", "name": "Mira", "one_line_trait": "practical"},
+    )
+    apply_choice(state, choice, rng=_FixedRandom(1.0))
+    assert state.memories == ["a smooth river stone"]
+    assert state.companions[0].name == "Mira"
+
+
+def test_apply_choice_cures_and_rolls_afflictions() -> None:
+    state = GameState(stage_index=0, energy=100, supplies=100)
+    state.add_affliction("exhausted")
+    choice = _choice(cures=("exhausted",), affliction_chance={"ill": 1.0})
+    apply_choice(state, choice, rng=_FixedRandom(0.0))
+    assert "exhausted" not in state.afflictions
+    assert "ill" in state.afflictions
