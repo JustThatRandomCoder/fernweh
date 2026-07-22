@@ -95,6 +95,72 @@
           "outcome": "You're across before the cold really reaches you, and the road climbs away from the water on the other side."
         }
       ]
+    },
+    {
+      "id": 3,
+      "season": "spring",
+      "scene": {
+        "description": "An old footbridge over a gorge, planks silvered and loose in places.",
+        "weather": "overcast"
+      },
+      "situation": "The bridge groans under its own weight before you've even set foot on it. A longer path winds down and around the gorge instead.",
+      "choices": [
+        {
+          "id": "spring_3_run",
+          "text": "Cross quickly, before you can think better of it.",
+          "effects": { "energy": -7 },
+          "unavailable_if": "ill",
+          "unavailable_reason": "your legs won't hold a run like that right now",
+          "outcome": "The planks complain the whole way, but they hold. You don't look down until you're across."
+        },
+        {
+          "id": "spring_3_careful",
+          "text": "Cross slowly, testing each board.",
+          "effects": { "energy": -10 },
+          "outcome": "It takes twice as long as it should. Somewhere in the middle you stop trusting the bridge and start trusting your own feet instead."
+        },
+        {
+          "id": "spring_3_around",
+          "text": "Take the longer path around the gorge.",
+          "effects": { "energy": -12, "supplies": -2 },
+          "outcome": "The detour costs you the afternoon, but the ground under you never once feels uncertain."
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "season": "spring",
+      "scene": {
+        "description": "The last blossoms of the season scattering across a hillside track.",
+        "weather": "breezy"
+      },
+      "situation": "A young herbalist is crouched in the grass, gathering something into a cloth pouch. She glances up without much surprise, as if she'd heard you coming a while ago.",
+      "choices": [
+        {
+          "id": "spring_4_invite",
+          "text": "Offer to travel together a while.",
+          "effects": { "supplies": -3 },
+          "companion": {
+            "id": "sable",
+            "name": "Sable",
+            "one_line_trait": "curious about everything that grows"
+          },
+          "outcome": "\"Only if you don't mind stopping for weeds,\" she says, already tying the pouch to her belt."
+        },
+        {
+          "id": "spring_4_ask",
+          "text": "Ask what she's gathering.",
+          "effects": { "energy": -3 },
+          "memory": "The name of a small white flower, already half-forgotten.",
+          "outcome": "She tells you, and you forget the name within the hour, but not the way she said it — like it mattered."
+        },
+        {
+          "id": "spring_4_pass",
+          "text": "Leave her to her work and keep walking.",
+          "effects": { "energy": -4 },
+          "outcome": "The hillside evens out ahead of you, and somewhere behind, summer is already arriving without you."
+        }
+      ]
     }
   ]
 }
