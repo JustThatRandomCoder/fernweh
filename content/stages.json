@@ -1,0 +1,100 @@
+{
+  "stages": [
+    {
+      "id": 0,
+      "season": "spring",
+      "scene": {
+        "description": "A muddy trailhead at the edge of town, rain still soft in the air.",
+        "weather": "drizzle"
+      },
+      "situation": "The road out of town is thin and wet. Somewhere past the treeline the rain is heavier. You could go now, or wait it out.",
+      "choices": [
+        {
+          "id": "spring_0_go_now",
+          "text": "Go now, while the rain is only a whisper.",
+          "effects": { "energy": -8, "supplies": -2 },
+          "outcome": "You walk into it. The rain finds the back of your collar within the hour, but the road is already behind you."
+        },
+        {
+          "id": "spring_0_wait",
+          "text": "Wait under the eaves for it to ease.",
+          "effects": { "energy": -2, "supplies": -3 },
+          "outcome": "You wait longer than you meant to. By the time you leave, the sky has thinned to a pale grey and the road is quieter for it."
+        },
+        {
+          "id": "spring_0_shortcut",
+          "text": "Cut through the wet field to save the hour.",
+          "effects": { "energy": -6, "supplies": -1 },
+          "affliction_chance": { "ill": 0.12 },
+          "outcome": "The field is slower than it looks, and colder. You come out the other side with mud to the knee and a chill you can't quite shake."
+        }
+      ]
+    },
+    {
+      "id": 1,
+      "season": "spring",
+      "scene": {
+        "description": "A fork in the road beside a stone well, blossom just starting on the trees.",
+        "weather": "clear"
+      },
+      "situation": "A woman is resting against the well, pack half-open beside her. She looks up as you near and says nothing, waiting to see if you'll stop.",
+      "choices": [
+        {
+          "id": "spring_1_invite",
+          "text": "Ask if she wants company on the road.",
+          "effects": { "supplies": -3 },
+          "companion": {
+            "id": "mira",
+            "name": "Mira",
+            "one_line_trait": "practical, doesn't waste words"
+          },
+          "outcome": "She looks at you for a long moment, then nods once and shoulders her pack. \"Mira,\" she says, like that settles it."
+        },
+        {
+          "id": "spring_1_share",
+          "text": "Share what food you can spare, then walk on alone.",
+          "effects": { "supplies": -5, "energy": -1 },
+          "memory": "A stranger's quiet thanks at a well you never learned the name of.",
+          "outcome": "She eats slowly, watching the road rather than you. When you leave she raises a hand, and you carry that small weight with you."
+        },
+        {
+          "id": "spring_1_pass",
+          "text": "Nod and keep walking.",
+          "effects": { "energy": -3 },
+          "outcome": "She doesn't call after you. The well disappears behind a bend, and the road narrows again."
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "season": "spring",
+      "scene": {
+        "description": "A shallow stream crossing under new leaves, sunlight breaking through in patches.",
+        "weather": "clear"
+      },
+      "situation": "The stream is cold and only knee-deep. On the far bank, something pale catches the light among the stones.",
+      "choices": [
+        {
+          "id": "spring_2_rest",
+          "text": "Sit on the bank a while before crossing.",
+          "effects": { "energy": 15, "supplies": -2 },
+          "cures": ["exhausted"],
+          "outcome": "The water talks to itself over the stones. You feel some of the last few days loosen in your shoulders."
+        },
+        {
+          "id": "spring_2_stone",
+          "text": "Wade over and see what's catching the light.",
+          "effects": { "energy": -4, "supplies": -1 },
+          "memory": "A smooth river stone, pale as bone, pocketed without knowing why.",
+          "outcome": "It's only a stone, smoothed pale by years of current. You take it anyway."
+        },
+        {
+          "id": "spring_2_push_on",
+          "text": "Cross quickly and keep the pace.",
+          "effects": { "energy": -9, "supplies": -2 },
+          "outcome": "You're across before the cold really reaches you, and the road climbs away from the water on the other side."
+        }
+      ]
+    }
+  ]
+}
