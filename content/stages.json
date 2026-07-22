@@ -161,6 +161,164 @@
           "outcome": "The hillside evens out ahead of you, and somewhere behind, summer is already arriving without you."
         }
       ]
+    },
+    {
+      "id": 5,
+      "season": "summer",
+      "scene": {
+        "description": "A dry, sunbaked plain shimmering at the edges, a lone tree offering the only shade for miles.",
+        "weather": "heatwave"
+      },
+      "situation": "The heat presses down harder than you expected. The tree ahead throws a thin patch of shade, and beyond it the road just keeps going, pale and shimmering.",
+      "choices": [
+        {
+          "id": "summer_5_rest",
+          "text": "Rest in the shade until the worst of the heat passes.",
+          "effects": { "energy": 10, "supplies": -3 },
+          "outcome": "You wait it out, watching the heat ripple over the plain. It's slow, but you leave steadier than you arrived."
+        },
+        {
+          "id": "summer_5_push",
+          "text": "Push through while there's still light left.",
+          "effects": { "energy": -14, "supplies": -2 },
+          "outcome": "The sun doesn't let up once. By the time the plain ends, your shirt is stiff with dried salt."
+        },
+        {
+          "id": "summer_5_share_water",
+          "text": "Share water with a traveler slumped by the roadside.",
+          "effects": { "supplies": -6 },
+          "memory": "A stranger's hand, shaking, closing around a water skin.",
+          "outcome": "He doesn't say much, just drinks like it's the first water he's seen in a day. Maybe it is."
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "season": "summer",
+      "scene": {
+        "description": "A dusty crossroads market, awnings flapping in the heat, voices calling out prices.",
+        "weather": "clear"
+      },
+      "situation": "A trader with a limp and a quick laugh falls into step beside you at the edge of the market, in no apparent hurry to sell you anything.",
+      "choices": [
+        {
+          "id": "summer_6_invite",
+          "text": "Ask if she'd rather walk than sell.",
+          "effects": { "supplies": -3 },
+          "companion": {
+            "id": "talia",
+            "name": "Talia",
+            "one_line_trait": "talks to fill silences, means well by it"
+          },
+          "outcome": "\"Finally,\" she says, like she'd been waiting for the offer the whole conversation. \"Talia. You'll get used to me.\""
+        },
+        {
+          "id": "summer_6_trade",
+          "text": "Trade what you can spare for dried supplies.",
+          "effects": { "supplies": 12, "energy": -2 },
+          "outcome": "The trader haggles out of habit more than need. You leave with your pack heavier and your pockets lighter."
+        },
+        {
+          "id": "summer_6_pass",
+          "text": "Keep to the edge of the market and move on.",
+          "effects": { "energy": -3 },
+          "outcome": "The noise of the market fades behind you, and the road opens back out into quiet, dry fields."
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "season": "summer",
+      "scene": {
+        "description": "A cracked riverbed, the water reduced to a thin, muddy trickle.",
+        "weather": "heatwave"
+      },
+      "situation": "The heat hasn't broken in days. Your legs feel heavier than the distance should account for.",
+      "choices": [
+        {
+          "id": "summer_7_sprint",
+          "text": "Move fast to clear the riverbed before dark.",
+          "effects": { "energy": -16 },
+          "unavailable_if": "exhausted",
+          "unavailable_reason": "you don't have that kind of pace left in you",
+          "affliction_chance": { "ill": 0.08 },
+          "outcome": "You make it, but only just. Your own heartbeat is the loudest thing on the whole plain."
+        },
+        {
+          "id": "summer_7_steady",
+          "text": "Keep a slow, steady pace and drink sparingly.",
+          "effects": { "energy": -6, "supplies": -3 },
+          "outcome": "It's not fast, but it's honest walking. The far bank arrives right about when you expect it to."
+        },
+        {
+          "id": "summer_7_camp_early",
+          "text": "Make camp early and let the heat break overnight.",
+          "effects": { "energy": 8, "supplies": -4 },
+          "cures": ["exhausted"],
+          "outcome": "The night cools faster than the day promised. You sleep better than you have in a while."
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "season": "summer",
+      "scene": {
+        "description": "A shaded orchard at the edge of a quiet village, fruit heavy on low branches.",
+        "weather": "warm"
+      },
+      "situation": "The orchard isn't fenced, and nobody's in sight. The village beyond looks like it could spare a proper meal, for the right price.",
+      "choices": [
+        {
+          "id": "summer_8_forage",
+          "text": "Take only what the orchard won't miss.",
+          "effects": { "supplies": 8, "energy": -2 },
+          "outcome": "You eat well and leave the rest. Whoever tends this place will never know you passed through."
+        },
+        {
+          "id": "summer_8_village",
+          "text": "Pay for a proper meal in the village.",
+          "effects": { "supplies": -8, "energy": 12 },
+          "cures": ["ill"],
+          "outcome": "It's the first hot meal in days, and it does more for you than the food alone should."
+        },
+        {
+          "id": "summer_8_keepsake",
+          "text": "Buy something small and useless from a stall, just to remember this place.",
+          "effects": { "supplies": -4 },
+          "memory": "A carved wooden bird, bought for no reason but that it caught the light.",
+          "outcome": "It's not worth what you paid for it. You keep it anyway."
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "season": "summer",
+      "scene": {
+        "description": "A ridge overlooking the valley, the first hint of amber creeping into the green below.",
+        "weather": "clear"
+      },
+      "situation": "From up here you can see how far you've come, and just how far is left. Someone in your company points it out before you can.",
+      "choices": [
+        {
+          "id": "summer_9_talk",
+          "text": "Sit and talk a while before the descent.",
+          "effects": { "energy": 10, "supplies": -2 },
+          "outcome": "Nobody says anything important, and somehow that's exactly what the moment needed."
+        },
+        {
+          "id": "summer_9_descend",
+          "text": "Start down into the valley without lingering.",
+          "effects": { "energy": -8 },
+          "outcome": "The path down is steep and fast, and summer falls away behind you almost too easily."
+        },
+        {
+          "id": "summer_9_mark",
+          "text": "Take a moment alone at the ridge's edge.",
+          "effects": { "energy": -1 },
+          "memory": "The exact color of the valley the day summer started to end.",
+          "outcome": "You don't tell anyone why you stopped. Some things are worth keeping just for yourself."
+        }
+      ]
     }
   ]
 }
