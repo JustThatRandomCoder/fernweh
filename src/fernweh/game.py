@@ -35,6 +35,7 @@ class Game:
         self.state = GameState()
         self.running = True
         self.particle_system: ParticleSystem | None = None
+        self.typewriter = ui.TypewriterText("")
         self._synced_stage_index: int | None = None
         self._previous_frame: pygame.Surface | None = None
         self._transition: Tween | None = None
@@ -53,6 +54,9 @@ class Game:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
+            elif event.type in (pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN):
+                if not self.typewriter.done:
+                    self.typewriter.skip()
 
     def _update(self, dt: float) -> None:
         self._sync_stage()
@@ -60,6 +64,7 @@ class Game:
             self.particle_system.update(dt)
         if self._transition:
             self._transition.update(dt)
+        self.typewriter.update(dt, hardship_level(self.state))
 
     def _sync_stage(self) -> None:
         if self.state.stage_index == self._synced_stage_index:
@@ -76,6 +81,7 @@ class Game:
         self.particle_system = (
             ParticleSystem(kind_name, *WINDOW_SIZE, rng=self.rng) if kind_name else None
         )
+        self.typewriter.reset(stage.situation)
 
     def _draw(self) -> None:
         desaturation = hardship_level(self.state) / MAX_DESATURATION_AFFLICTIONS
@@ -84,10 +90,11 @@ class Game:
         if self.particle_system:
             self.particle_system.draw(self.screen)
 
-        stage = self.stages[self.state.stage_index]
         text_rect = pygame.Rect(MARGIN, MARGIN, WINDOW_SIZE[0] - 2 * MARGIN, 200)
         palette = scenes.palette_for_season(self.state.season)
-        ui.draw_wrapped_text(self.screen, stage.situation, self.font, palette.text, text_rect)
+        ui.draw_wrapped_text(
+            self.screen, self.typewriter.visible_text(), self.font, palette.text, text_rect
+        )
 
         if self._transition and not self._transition.done and self._previous_frame:
             self._previous_frame.set_alpha(round(self._transition.value))
