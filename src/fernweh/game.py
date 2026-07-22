@@ -11,11 +11,14 @@ from fernweh.afflictions import hardship_level
 from fernweh.particles import ParticleSystem, particle_kind_for_weather
 from fernweh.stages import load_stages
 from fernweh.state import GameState
+from fernweh.tween import Tween, ease_out_quad
 
 WINDOW_SIZE = (960, 600)
 MARGIN = 48
 FPS = 60
 MAX_DESATURATION_AFFLICTIONS = 4
+TRANSITION_DURATION = 0.6
+TRANSITION_START_ALPHA = 255
 
 
 class Game:
@@ -33,7 +36,9 @@ class Game:
         self.running = True
         self.particle_system: ParticleSystem | None = None
         self._synced_stage_index: int | None = None
-        self._sync_particle_system()
+        self._previous_frame: pygame.Surface | None = None
+        self._transition: Tween | None = None
+        self._sync_stage()
 
     def run(self) -> None:
         """Run the main loop until the window is closed."""
@@ -50,14 +55,22 @@ class Game:
                 self.running = False
 
     def _update(self, dt: float) -> None:
-        self._sync_particle_system()
+        self._sync_stage()
         if self.particle_system:
             self.particle_system.update(dt)
+        if self._transition:
+            self._transition.update(dt)
 
-    def _sync_particle_system(self) -> None:
+    def _sync_stage(self) -> None:
         if self.state.stage_index == self._synced_stage_index:
             return
+        if self._synced_stage_index is not None:
+            self._previous_frame = self.screen.copy()
+            self._transition = Tween(
+                TRANSITION_START_ALPHA, 0, TRANSITION_DURATION, easing=ease_out_quad
+            )
         self._synced_stage_index = self.state.stage_index
+
         stage = self.stages[self.state.stage_index]
         kind_name = particle_kind_for_weather(stage.scene["weather"])
         self.particle_system = (
@@ -75,6 +88,10 @@ class Game:
         text_rect = pygame.Rect(MARGIN, MARGIN, WINDOW_SIZE[0] - 2 * MARGIN, 200)
         palette = scenes.palette_for_season(self.state.season)
         ui.draw_wrapped_text(self.screen, stage.situation, self.font, palette.text, text_rect)
+
+        if self._transition and not self._transition.done and self._previous_frame:
+            self._previous_frame.set_alpha(round(self._transition.value))
+            self.screen.blit(self._previous_frame, (0, 0))
 
         pygame.display.flip()
 
