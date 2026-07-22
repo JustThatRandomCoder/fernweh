@@ -44,7 +44,25 @@ are no-ops, so a stray update after the journey ends can't resurrect it or skip 
 
 ## Data Format
 
-*(to be filled in once `content/stages.json` and its loader exist)*
+Stages live in `content/stages.json` as a single `{"stages": [...]}` array, one entry per
+stage index (0-based, contiguous, no gaps — enforced by `stages._validate_stage_sequence`).
+Each stage declares its `season`, a `scene` dict (`description` + `weather`, used later by
+the renderer to pick a palette/particle effect), a `situation` string, and 2–3 `choices`.
+
+A choice's `effects` dict may only use the keys in `stages.VALID_EFFECT_KEYS` (`energy`,
+`supplies`); `affliction_chance`, `cures`, and `unavailable_if` may only reference ids in
+`stages.VALID_AFFLICTIONS`. `stages.load_stages()` validates all of this at load time and
+raises `ContentError` with a specific message rather than letting bad content fail silently
+or crash deep in game logic. This is deliberately stricter than "just parse the JSON" —
+content is written by hand and the validation step catches typos in effect/affliction names
+before they'd otherwise surface as a silent no-op during play.
+
+`season` is declared per-stage in the JSON *and* cross-checked against the value computed
+from the stage index (`stages.stage_season`) — this catches a copy-paste error where a
+stage is filed under the wrong season heading.
+
+Only 3 stages exist so far (milestone 4 — proving the schema); the full 20-stage script is
+written in a later milestone.
 
 ## Testing
 
