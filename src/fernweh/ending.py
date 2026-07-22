@@ -1,0 +1,105 @@
+"""Procedural ending summary generator.
+
+Composes a short narrative summary from the end state — final energy tier,
+companions, active afflictions, and memory count — rather than a stats screen
+with numbers. This is deliberately a small rules-based text generator, not a
+lookup table of hardcoded endings.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from fernweh.state import GameState
+
+REST_ENERGY_THRESHOLD = 70
+TIRED_ENERGY_THRESHOLD = 35
+
+_ENERGY_PHRASES = {
+    "rested": "you arrive steady, rested enough to feel it",
+    "tired": "you arrive tired, the road still heavy in your legs",
+    "exhausted": "you arrive exhausted, barely upright",
+}
+
+_AFFLICTION_PHRASES = {
+    "exhausted": "still worn thin from exhaustion",
+    "ill": "still recovering from illness",
+    "frostbitten": "nursing frostbitten fingers",
+}
+
+
+@dataclass(frozen=True)
+class EndingSummary:
+    """A composed narrative ending: prose plus a keepsakes list."""
+
+    prose: str
+    keepsakes: list[str]
+
+
+def energy_tier(energy: int) -> str:
+    """Classify final energy into a coarse descriptive tier."""
+    if energy >= REST_ENERGY_THRESHOLD:
+        return "rested"
+    if energy >= TIRED_ENERGY_THRESHOLD:
+        return "tired"
+    return "exhausted"
+
+
+def generate_ending(state: GameState) -> EndingSummary:
+    """Build the narrative ending summary for a finished or failed journey."""
+    sentences = []
+
+    if state.is_failed:
+        sentences.append(
+            f"The path goes on without you. Your journey ends here, somewhere in {state.season}."
+        )
+
+    tier = energy_tier(state.energy)
+    energy_phrase = _ENERGY_PHRASES[tier]
+    sentences.append(
+        f"{energy_phrase[0].upper()}{energy_phrase[1:]}, and {_companion_phrase(state)}."
+    )
+
+    affliction_phrase = _affliction_phrase(state)
+    if affliction_phrase:
+        sentences.append(f"You are {affliction_phrase}.")
+
+    sentences.append(f"Of the road behind you, {_memory_phrase(state)}.")
+
+    keepsakes = list(state.memories) + [companion.name for companion in state.companions]
+    return EndingSummary(prose=" ".join(sentences), keepsakes=keepsakes)
+
+
+def _companion_phrase(state: GameState) -> str:
+    names = [companion.name for companion in state.companions]
+    if not names:
+        return "you made this stretch of the road alone"
+    if len(names) == 1:
+        return f"you had {names[0]} beside you"
+    others = len(names) - 1
+    noun = "other" if others == 1 else "others"
+    return f"you had {names[0]} and {others} {noun} beside you"
+
+
+def _affliction_phrase(state: GameState) -> str | None:
+    phrases = [
+        _AFFLICTION_PHRASES[affliction_id]
+        for affliction_id in sorted(state.afflictions)
+        if affliction_id in _AFFLICTION_PHRASES
+    ]
+    if not phrases:
+        return None
+    if len(phrases) == 1:
+        return phrases[0]
+    return ", ".join(phrases[:-1]) + f", and {phrases[-1]}"
+
+
+def _memory_phrase(state: GameState) -> str:
+    count = len(state.memories)
+    if count == 0:
+        return "you remember the road only in outline"
+    if count <= 2:
+        return "a few moments of it stayed with you"
+    if count <= 5:
+        return "much of the road, you remember clearly"
+    return "you remember nearly every step of it"
