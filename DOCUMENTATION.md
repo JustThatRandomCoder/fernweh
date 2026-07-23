@@ -170,12 +170,21 @@ journey — Mira (stage 1), Sable (stage 4), Talia (stage 6), Emet (stage 11), W
 18) — five opportunities for four slots, so a player who wants a full company has to pass
 on one. Frostbitten risk is confined to the winter stages (15-19) and content validation
 enforces that at load time; Ill risk appears both as a direct per-choice consequence (e.g.
-a risky shortcut) and will additionally be rolled per-stage once `game.py` wires in
-`afflictions.roll_ill` at the start of a stage.
+a risky shortcut) and as a per-stage roll (`afflictions.roll_ill`, called from
+`stages.apply_choice` immediately after `advance_stage()`, so it fires "at the start of"
+the newly-arrived stage as the design calls for).
 
 ## Testing
 
-*(to be filled in once the test suite exists)*
+The full suite (`pytest tests/ -v`, see [`TESTING.md`](TESTING.md)) runs headlessly — no
+test ever calls `pygame.display.set_mode`. This is possible because `state.py`, `stages.py`,
+`afflictions.py`, and `ending.py` never import `pygame`, and the one piece of rendering-
+adjacent logic that does get unit-tested (`ui.TypewriterText`, `ui.IntroDialog`) is pure
+string/state manipulation with no drawing calls in its test path. Rendering itself (`game.py`,
+`scenes.py`, `particles.py`, `ui.ChoiceButton.draw`) is exercised manually with pygame's
+`dummy` SDL video/audio drivers during development (`SDL_VIDEODRIVER=dummy python main.py`-
+style smoke runs) rather than through the pytest suite, since asserting on rendered pixels
+would be brittle relative to what it protects.
 
 ## Tooling
 
@@ -185,16 +194,19 @@ a risky shortcut) and will additionally be rolled per-stage once `game.py` wires
 ## Known Limitations
 
 **Balance is heuristic-tuned, not mathematically derived.** The base drain rates in
-`afflictions.py` were adjusted after simulating hundreds of full playthroughs (both
-resource-aware and fully random choice policies) rather than computed from a formula — the
-first pass (drain rates copied straight from the design brief's relative ordering) made the
-journey nearly unwinnable even under careful play, since 20 stages of compounding base drain
-outpaced anything a reasonable choice pattern could restore. The current constants get
-resource-aware simulated play to complete reliably while fully random play still fails more
-often than not, which matches the intended "failure is real but not likely for an attentive
-player" shape. There's no automated regression test pinning this balance — a future content
-change (e.g. adding a 21st stage, or an unusually costly choice) could silently reintroduce
-the problem, and periodic re-simulation is the way to check.
+`afflictions.py` were adjusted after simulating hundreds of full playthroughs under a few
+scripted choice policies rather than computed from a formula — the first pass (drain rates
+copied straight from the design brief's relative ordering) made the journey nearly
+unwinnable even under careful play, since 20 stages of compounding base drain outpaced
+anything a reasonable choice pattern could restore. With the tuned constants, a careful
+policy (avoid recruiting companions, prioritize rest and curing afflictions, weight
+resource conservation heavily once either resource drops below 40) completes 300/300
+simulated runs; a merely resource-aware policy that doesn't specifically chase cures
+completes roughly a third; and fully random choice-picking completes only a few percent.
+That spread — attentive play reliably succeeds, careless play risks real failure — is the
+intended shape. There's no automated regression test pinning this balance — a future
+content change (e.g. adding a 21st stage, or an unusually costly choice) could silently
+shift it, and periodic re-simulation is the way to check.
 
 **Companion roster gating happens at the UI layer, not in `apply_choice`.** If a companion
 invite choice is applied directly (bypassing `game.py`'s button availability check) while the

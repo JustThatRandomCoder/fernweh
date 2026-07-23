@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from fernweh.afflictions import base_stage_drain, maybe_trigger_exhausted
+from fernweh.afflictions import base_stage_drain, maybe_trigger_exhausted, roll_ill
 from fernweh.state import SEASONS, STAGES_PER_SEASON, Companion, GameState
 
 VALID_EFFECT_KEYS = frozenset({"energy", "supplies"})
@@ -78,8 +78,9 @@ def apply_choice(state: GameState, choice: Choice, rng: random.Random | None = N
 
     Order of operations: base per-stage drain first (so afflictions reflect the
     stage just lived through), then the choice's own effects, memory/companion
-    pickups, cures, and affliction rolls, then advance the stage index. A no-op
-    if the journey has already ended.
+    pickups, cures, and affliction rolls, then advance the stage index and roll
+    for Ill at the start of the new stage. A no-op if the journey has already
+    ended.
     """
     if state.ended:
         return
@@ -109,6 +110,8 @@ def apply_choice(state: GameState, choice: Choice, rng: random.Random | None = N
 
     maybe_trigger_exhausted(state)
     state.advance_stage()
+    if not state.ended:
+        roll_ill(state, rng)
 
 
 def _parse_stage(raw: dict[str, Any]) -> Stage:
