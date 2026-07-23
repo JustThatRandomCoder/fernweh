@@ -23,9 +23,9 @@ ILL_SUPPLIES_DRAIN_MULTIPLIER = 1.15
 FROSTBITTEN_SEASON = "winter"
 FROSTBITTEN_DRAIN_MULTIPLIER = 1.10
 
-BASE_ENERGY_DRAIN_BY_SEASON = {"spring": 5, "summer": 6, "autumn": 7, "winter": 9}
-BASE_SUPPLIES_DRAIN_BY_SEASON = {"spring": 4, "summer": 5, "autumn": 6, "winter": 7}
-SUPPLIES_DRAIN_PER_COMPANION = 2
+BASE_ENERGY_DRAIN_BY_SEASON = {"spring": 3, "summer": 4, "autumn": 4, "winter": 5}
+BASE_SUPPLIES_DRAIN_BY_SEASON = {"spring": 2, "summer": 3, "autumn": 3, "winter": 4}
+SUPPLIES_DRAIN_PER_COMPANION = 1
 
 
 def maybe_trigger_exhausted(state: GameState) -> None:
