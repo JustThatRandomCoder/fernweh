@@ -114,9 +114,37 @@ unit-tested directly rather than through rendered output. This is what scene cro
 UI hover/press animation are built on, instead of pulling in an external animation library.
 
 **Game loop (`game.py`).** `Game` owns the pygame window, clock, loaded stage content, and
-the current `GameState`. The loop separates `_update(dt)` (particle motion, and later tween
-advancement) from `_draw()` (season background, particles, then text) — this keeps a clear
-seam for adding animation state without tangling it into drawing code.
+the current `GameState`. The loop separates `_update(dt)` (particles, transition tween,
+typewriter, button hover) from `_draw()` (season background, particles, text, buttons,
+transition overlay, dialog) — a clear seam between simulation and rendering.
+
+**Choice UI.** `ui.ChoiceButton` drives its own hover/press scale via an elapsed-time value
+eased with `ease_out_quad` (see Tweening above) rather than a discrete `Tween`, because hover
+is a continuous state the mouse can enter or leave at any moment — a one-shot tween doesn't
+fit that shape. Buttons are rebuilt from the current stage's choices every time the stage
+changes (`_build_buttons`), with availability computed from `stages.choice_is_available`
+against the state's active afflictions, so a choice greyed out by illness updates
+automatically the moment illness is cured.
+
+**Stage sync (`_sync_stage`).** One method is the single source of truth for "the displayed
+stage changed": it snapshots the previous frame for the crossfade, rebuilds the particle
+system, resets the typewriter to the new situation text, and rebuilds the choice buttons —
+all keyed off comparing `state.stage_index` to a `_synced_stage_index` cache, so it runs
+exactly once per stage change regardless of how many events triggered it.
+
+**Ending screen.** Reaching `state.ended` (success or failure) is a separate sync path
+(`_sync_ending`), since `stage_index` doesn't necessarily change when the journey ends —
+a mid-stage failure ends the game without advancing. It reuses the typewriter for the ending
+prose and repurposes the button list for a single "Begin a new journey" button, so the
+success and failure paths share one rendering path instead of two screens to keep in sync.
+Restarting simply replaces `self.state` with a fresh `GameState()` and re-runs `_sync_stage`.
+
+**Intro/help dialog.** `ui.IntroDialog` is a small paged click-through shown at startup
+(`Game.dialog`) and re-openable at any time during play via the `H` key — the same class and
+page content both times, rather than a separate "help screen" that could drift out of sync
+with the intro. Whether it's been seen is just whether `self.dialog` is `None`, a runtime
+flag that resets on every process start (never persisted), matching the "skippable on
+replay, not saved" requirement.
 
 ## Data Format
 
