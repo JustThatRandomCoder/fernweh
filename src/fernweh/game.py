@@ -33,6 +33,7 @@ class Game:
         self.screen = pygame.display.set_mode(WINDOW_SIZE)
         self.clock = pygame.time.Clock()
         self.font = pygame.font.Font(None, 28)
+        self.hint_font = pygame.font.Font(None, 20)
         self.rng = random.Random()
         self.stages = load_stages()
         self.state = GameState()
@@ -41,6 +42,7 @@ class Game:
         self.typewriter = ui.TypewriterText("")
         self.choices: list[Choice] = []
         self.buttons: list[ui.ChoiceButton] = []
+        self.dialog: ui.IntroDialog | None = ui.IntroDialog()
         self._synced_stage_index: int | None = None
         self._previous_frame: pygame.Surface | None = None
         self._transition: Tween | None = None
@@ -59,6 +61,10 @@ class Game:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
+            elif self.dialog is not None:
+                self._handle_dialog_event(event)
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_h:
+                self.dialog = ui.IntroDialog()
             elif event.type == pygame.KEYDOWN and not self.typewriter.done:
                 self.typewriter.skip()
             elif event.type == pygame.MOUSEBUTTONDOWN:
@@ -66,6 +72,13 @@ class Game:
                     self.typewriter.skip()
                 else:
                     self._handle_choice_click(event.pos)
+
+    def _handle_dialog_event(self, event: pygame.event.Event) -> None:
+        if event.type not in (pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN):
+            return
+        self.dialog.advance()
+        if self.dialog.done:
+            self.dialog = None
 
     def _handle_choice_click(self, pos: tuple[int, int]) -> None:
         for button, choice in zip(self.buttons, self.choices):
@@ -135,6 +148,12 @@ class Game:
         if self._transition and not self._transition.done and self._previous_frame:
             self._previous_frame.set_alpha(round(self._transition.value))
             self.screen.blit(self._previous_frame, (0, 0))
+
+        if self.dialog is not None:
+            self.dialog.draw(self.screen, self.font, self.hint_font, palette)
+        else:
+            help_hint = self.hint_font.render("press H for help", True, ui.dim_color(palette.text))
+            self.screen.blit(help_hint, (MARGIN, WINDOW_SIZE[1] - MARGIN))
 
         pygame.display.flip()
 
