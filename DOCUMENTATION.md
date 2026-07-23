@@ -184,4 +184,21 @@ a risky shortcut) and will additionally be rolled per-stage once `game.py` wires
 
 ## Known Limitations
 
-*(to be filled in as they're discovered)*
+**Balance is heuristic-tuned, not mathematically derived.** The base drain rates in
+`afflictions.py` were adjusted after simulating hundreds of full playthroughs (both
+resource-aware and fully random choice policies) rather than computed from a formula — the
+first pass (drain rates copied straight from the design brief's relative ordering) made the
+journey nearly unwinnable even under careful play, since 20 stages of compounding base drain
+outpaced anything a reasonable choice pattern could restore. The current constants get
+resource-aware simulated play to complete reliably while fully random play still fails more
+often than not, which matches the intended "failure is real but not likely for an attentive
+player" shape. There's no automated regression test pinning this balance — a future content
+change (e.g. adding a 21st stage, or an unusually costly choice) could silently reintroduce
+the problem, and periodic re-simulation is the way to check.
+
+**Companion roster gating happens at the UI layer, not in `apply_choice`.** If a companion
+invite choice is applied directly (bypassing `game.py`'s button availability check) while the
+roster is already full at `MAX_COMPANIONS`, the choice's resource cost is still paid even
+though `GameState.add_companion` silently declines to add them. In normal play this can't
+happen — `Game._build_buttons` greys out invite choices once the roster is full — but a test
+or script driving `stages.apply_choice` directly should be aware the cost isn't refunded.
