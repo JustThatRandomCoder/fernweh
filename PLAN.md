@@ -33,7 +33,7 @@ content changes (writing more stages) from ever touching engine code.
 
 ```
 fernweh/
-  main.py
+  fernweh.py
   requirements.txt
   LICENSE
   README.md
@@ -104,7 +104,7 @@ Each milestone is functional on its own and ends in a commit before the next beg
 17. **Finalize docs** — `README.md`, `DOCUMENTATION.md`, `TESTING.md` brought up to date
     with the finished project, not written from scratch at the end.
 18. **Final review** — fresh clone + venv sanity check (`pip install -r requirements.txt`,
-    `python main.py`, `pytest tests/ -v`), last cleanup commit.
+    `python3 fernweh.py`, `pytest tests/ -v`), last cleanup commit.
 
 ## Testing strategy
 

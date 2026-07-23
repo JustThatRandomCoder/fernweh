@@ -1,4 +1,4 @@
-"""Entry point: `python main.py` opens the Fernweh window and starts the game."""
+"""Entry point: `python3 fernweh.py` opens the Fernweh window and starts the game."""
 
 import sys
 from pathlib import Path

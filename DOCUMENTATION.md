@@ -16,7 +16,7 @@ changes from ever touching rendering code.
 `fernweh` package. An editable install (`pip install -e .`) is the documented setup path,
 but pytest is additionally configured with `pythonpath = ["src"]` in `pyproject.toml` so the
 test suite resolves the package reliably across environments regardless of editable-install
-quirks. `main.py` inserts `src/` onto `sys.path` directly for the same reason — this keeps
+quirks. `fernweh.py` inserts `src/` onto `sys.path` directly for the same reason — this keeps
 "one command to launch" working even if the editable install step is skipped.
 
 ## Game Systems
@@ -182,9 +182,9 @@ test ever calls `pygame.display.set_mode`. This is possible because `state.py`, 
 adjacent logic that does get unit-tested (`ui.TypewriterText`, `ui.IntroDialog`) is pure
 string/state manipulation with no drawing calls in its test path. Rendering itself (`game.py`,
 `scenes.py`, `particles.py`, `ui.ChoiceButton.draw`) is exercised manually with pygame's
-`dummy` SDL video/audio drivers during development (`SDL_VIDEODRIVER=dummy python main.py`-
-style smoke runs) rather than through the pytest suite, since asserting on rendered pixels
-would be brittle relative to what it protects.
+`dummy` SDL video/audio drivers during development (`SDL_VIDEODRIVER=dummy python3
+fernweh.py`-style smoke runs) rather than through the pytest suite, since asserting on
+rendered pixels would be brittle relative to what it protects.
 
 ## Tooling
 

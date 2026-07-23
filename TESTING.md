@@ -53,8 +53,8 @@ Both run the full suite. A clean run ends with something like:
 ## Linting and formatting
 
 ```bash
-black src tests main.py
-ruff check src tests main.py
+black src tests fernweh.py
+ruff check src tests fernweh.py
 ```
 
 Both are expected to run clean before a commit.

@@ -223,5 +223,5 @@ class Game:
 
 
 def run() -> None:
-    """Start Fernweh. Used as the sole entry point from `main.py`."""
+    """Start Fernweh. Used as the sole entry point from `fernweh.py`."""
     Game().run()

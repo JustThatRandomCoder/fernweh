@@ -57,11 +57,11 @@ cd fernweh
 python3 -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-python main.py
+python3 fernweh.py
 ```
 
-That's it — no config files, no extra flags. `python main.py` opens the window and starts
-with a short click-through intro (also reachable later by pressing `H`).
+That's it — no config files, no extra flags. `python3 fernweh.py` opens the window and
+starts with a short click-through intro (also reachable later by pressing `H`).
 
 ## Running tests
 
