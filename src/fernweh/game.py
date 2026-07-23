@@ -8,6 +8,7 @@ import pygame
 
 from fernweh import scenes, ui
 from fernweh.afflictions import hardship_level
+from fernweh.ending import generate_ending
 from fernweh.particles import ParticleSystem, particle_kind_for_weather
 from fernweh.stages import Choice, apply_choice, choice_is_available, load_stages
 from fernweh.state import GameState
@@ -22,6 +23,8 @@ TRANSITION_START_ALPHA = 255
 TEXT_AREA_HEIGHT = 200
 BUTTON_HEIGHT = 56
 BUTTON_SPACING = 16
+KEEPSAKES_AREA_HEIGHT = 120
+RESTART_LABEL = "Begin a new journey"
 
 
 class Game:
@@ -43,7 +46,9 @@ class Game:
         self.choices: list[Choice] = []
         self.buttons: list[ui.ChoiceButton] = []
         self.dialog: ui.IntroDialog | None = ui.IntroDialog()
+        self.keepsakes: list[str] = []
         self._synced_stage_index: int | None = None
+        self._synced_ended = False
         self._previous_frame: pygame.Surface | None = None
         self._transition: Tween | None = None
         self._sync_stage()
@@ -81,10 +86,20 @@ class Game:
             self.dialog = None
 
     def _handle_choice_click(self, pos: tuple[int, int]) -> None:
+        if self.state.ended:
+            if self.buttons and self.buttons[0].contains(pos):
+                self._restart()
+            return
         for button, choice in zip(self.buttons, self.choices):
             if button.contains(pos):
                 apply_choice(self.state, choice, self.rng)
                 return
+
+    def _restart(self) -> None:
+        self.state = GameState()
+        self._synced_stage_index = None
+        self._synced_ended = False
+        self._sync_stage()
 
     def _update(self, dt: float) -> None:
         self._sync_stage()
@@ -99,6 +114,9 @@ class Game:
             button.update(dt, mouse_pos, mouse_down)
 
     def _sync_stage(self) -> None:
+        if self.state.ended:
+            self._sync_ending()
+            return
         if self.state.stage_index == self._synced_stage_index:
             return
         if self._synced_stage_index is not None:
@@ -115,6 +133,28 @@ class Game:
         )
         self.typewriter.reset(stage.situation)
         self._build_buttons(stage.choices)
+
+    def _sync_ending(self) -> None:
+        if self._synced_ended:
+            return
+        self._synced_ended = True
+        self._previous_frame = self.screen.copy()
+        self._transition = Tween(
+            TRANSITION_START_ALPHA, 0, TRANSITION_DURATION, easing=ease_out_quad
+        )
+
+        summary = generate_ending(self.state)
+        self.keepsakes = summary.keepsakes
+        self.typewriter.reset(summary.prose)
+
+        restart_rect = pygame.Rect(
+            MARGIN,
+            WINDOW_SIZE[1] - MARGIN - BUTTON_HEIGHT,
+            WINDOW_SIZE[0] - 2 * MARGIN,
+            BUTTON_HEIGHT,
+        )
+        self.buttons = [ui.ChoiceButton(restart_rect, RESTART_LABEL)]
+        self.choices = []
 
     def _build_buttons(self, choices: tuple[Choice, ...]) -> None:
         self.choices = [] if self.state.ended else list(choices)
@@ -140,6 +180,26 @@ class Game:
         ui.draw_wrapped_text(
             self.screen, self.typewriter.visible_text(), self.font, palette.text, text_rect
         )
+
+        if self.typewriter.done and self.state.ended:
+            keepsakes_rect = pygame.Rect(
+                MARGIN,
+                MARGIN + TEXT_AREA_HEIGHT,
+                WINDOW_SIZE[0] - 2 * MARGIN,
+                KEEPSAKES_AREA_HEIGHT,
+            )
+            keepsakes_text = (
+                "Keepsakes: " + ", ".join(self.keepsakes)
+                if self.keepsakes
+                else "You carry no keepsakes from this road."
+            )
+            ui.draw_wrapped_text(
+                self.screen,
+                keepsakes_text,
+                self.hint_font,
+                ui.dim_color(palette.text),
+                keepsakes_rect,
+            )
 
         if self.typewriter.done:
             for button in self.buttons:
