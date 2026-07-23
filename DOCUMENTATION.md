@@ -19,6 +19,61 @@ test suite resolves the package reliably across environments regardless of edita
 quirks. `fernweh.py` inserts `src/` onto `sys.path` directly for the same reason — this keeps
 "one command to launch" working even if the editable install step is skipped.
 
+**Self-installing bootstrap.** `fernweh.py` is both the entry point and its own installer:
+running `python3 fernweh.py` from a completely fresh clone, with no `.venv/` and no
+dependencies installed anywhere, is enough. Before importing anything that needs `pygame`,
+`main()` calls `_bootstrap()`, which:
+
+1. Creates `.venv/` via `python3 -m venv .venv` if it doesn't already exist.
+2. Installs `requirements.txt` into that venv if dependencies are missing or stale.
+3. Re-launches the script inside the venv's interpreter via `os.execv`, if it isn't already
+   running there.
+
+*Staleness check.* Rather than trying to detect "are dependencies installed" by attempting
+an import (which would require the check itself to run inside the venv, creating a
+chicken-and-egg problem before the venv is even confirmed ready), `_install_dependencies`
+writes a marker file (`.venv/.requirements.sha256`) containing a SHA-256 hash of
+`requirements.txt` after a successful install. `_dependencies_up_to_date` just compares the
+marker against a freshly computed hash — cheap, doesn't need the venv's Python to run, and
+naturally invalidates itself the moment `requirements.txt` changes, without needing to parse
+or diff the file's contents.
+
+*venv detection.* The re-exec check originally compared `Path(sys.executable).resolve()`
+against the venv python's resolved path — and was wrong: `.venv/bin/python` is frequently
+just a symlink to the base interpreter, so `.resolve()` on both sides can land on the exact
+same real file even when the venv was never activated, silently skipping the re-exec and
+leaving the process running with the *system* interpreter's `sys.path` (which doesn't have
+the just-installed `pygame-ce`, producing a confusing `ModuleNotFoundError` deep in
+`game.py` instead of at the bootstrap step where it'd be obvious). The fix
+(`_running_inside_venv`) compares `sys.prefix` — which Python sets from `.venv/pyvenv.cfg`
+whenever the venv is genuinely active — against `VENV_DIR`, which reflects reality
+regardless of whether the executable used to get there was a symlink. This is covered by
+`tests/test_bootstrap.py::test_running_inside_venv_uses_sys_prefix_not_executable_path` as a
+regression test.
+
+*Output.* Setup messages (`Setting up Fernweh for the first time...`,
+`Installing dependencies...`) are printed with `flush=True`. Without that, they can be lost
+entirely: `os.execv` replaces the process image immediately, without flushing Python's
+buffered stdout first, so an unflushed message written just before the re-exec simply never
+reaches the terminal. `subprocess.run(..., capture_output=True)` is used for both the venv
+creation and the pip install themselves, so a successful run stays quiet (no pip progress
+spam) and a failed one has the real stderr available to show.
+
+*Failure paths.* Every failure `_bootstrap()` can hit calls `_fail()`, which prints a short
+message and exits — never a raw traceback for something anticipated:
+- `python3 -m venv .venv` fails because the interpreter can't be found at all → points at
+  https://www.python.org/downloads/.
+- It fails with `ensurepip`/`No module named venv`/`python3-venv` in stderr (the common
+  Debian/Ubuntu case where the `venv` module is a separate package) → tells the user to run
+  `sudo apt install python3-venv`.
+- It fails with "Permission denied" (no write access to the clone location) → tells the user
+  to check folder permissions or clone somewhere they own.
+- Any other venv-creation failure → shows the real stderr, then suggests re-running
+  `python3 -m venv .venv` manually to see the full error.
+- `pip install -r requirements.txt` fails inside the venv → shows the real pip stderr, then
+  suggests `source .venv/bin/activate && pip install -r requirements.txt` to reproduce and
+  fix it manually.
+
 ## Game Systems
 
 ### State (`state.py`)

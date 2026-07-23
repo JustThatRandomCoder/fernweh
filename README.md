@@ -2,7 +2,7 @@
 
 ![Fernweh banner](https://capsule-render.vercel.app/api?type=soft&color=0:8FBF7F,25:E8C468,50:E0813E,75:6E8FB5,100:E8EEF2&height=200&section=header&text=Fernweh&fontSize=64&fontColor=2E2A26&fontAlignY=40&desc=a%20walk%20from%20spring%20to%20winter&descAlignY=62&descSize=20&descColor=2E2A26&animation=fadeIn)
 
-[![Typing SVG](https://readme-typing-svg.demolab.com?font=Georgia&size=18&pause=2200&color=6B6B6B&center=true&vCenter=true&width=560&lines=a+walk+from+spring+to+winter.;no+combat.+no+timer.+no+score.;however+you+arrive%2C+you+arrive.)](https://github.com/JustThatRandomCoder/seasons-game)
+[![Typing SVG](https://readme-typing-svg.demolab.com?font=Georgia&size=18&pause=2200&color=6B6B6B&center=true&vCenter=true&width=560&lines=a+walk+from+spring+to+winter.;no+combat.+no+timer.+no+score.;however+you+arrive%2C+you+arrive.)](https://github.com/JustThatRandomCoder/fernweh)
 
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/)
 [![License: All Rights Reserved](https://img.shields.io/badge/license-all%20rights%20reserved-6E8FB5)](LICENSE)
@@ -49,23 +49,25 @@ Windows, or macOS's built-in Cmd+Shift+5 screen recording, converted to GIF with
 
 ## Installation & running
 
-Requires Python 3.11+.
+Requires Python 3.11+. Nothing else — no manual virtual environment, no manual
+`pip install`, no activation step.
 
 ```bash
-git clone https://github.com/JustThatRandomCoder/seasons-game.git fernweh
+git clone https://github.com/JustThatRandomCoder/fernweh.git fernweh
 cd fernweh
-python3 -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
 python3 fernweh.py
 ```
 
-That's it — no config files, no extra flags. `python3 fernweh.py` opens the window and
-starts with a short click-through intro (also reachable later by pressing `H`).
+The first run sets up a local virtual environment and installs dependencies
+automatically (with a short status message while it does), then opens the window and
+starts with a click-through intro (also reachable later by pressing `H`). Every run after
+that skips straight to launching the game.
 
 ## Running tests
 
 ```bash
+python3 -m venv .venv
+source .venv/bin/activate    # Windows: .venv\Scripts\activate
 pip install -r requirements-dev.txt
 pytest tests/ -v
 ```
