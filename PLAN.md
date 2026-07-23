@@ -66,7 +66,7 @@ fernweh/
 
 Each milestone is functional on its own and ends in a commit before the next begins.
 
-1. **Repo init** — `.gitignore`, MIT `LICENSE` (Julius Grimm, 2026), `README.md` stub,
+1. **Repo init** — `.gitignore`, `LICENSE` (Julius Grimm, 2026), `README.md` stub,
    `PLAN.md` (this file). *(current milestone)*
 2. **Doc skeletons** — `DOCUMENTATION.md` and `CLAUDE.md`, structured with headings that
    will grow as the build proceeds.

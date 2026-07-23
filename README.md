@@ -5,7 +5,7 @@
 [![Typing SVG](https://readme-typing-svg.demolab.com?font=Georgia&size=18&pause=2200&color=6B6B6B&center=true&vCenter=true&width=560&lines=a+walk+from+spring+to+winter.;no+combat.+no+timer.+no+score.;however+you+arrive%2C+you+arrive.)](https://github.com/JustThatRandomCoder/seasons-game)
 
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/)
-[![License: MIT](https://img.shields.io/badge/license-MIT-6E8FB5)](LICENSE)
+[![License: All Rights Reserved](https://img.shields.io/badge/license-all%20rights%20reserved-6E8FB5)](LICENSE)
 [![Built with pygame-ce](https://img.shields.io/badge/built%20with-pygame--ce-8FBF7F)](https://github.com/pygame-community/pygame-ce)
 
 </div>
@@ -85,4 +85,8 @@ decisions behind each system.
 
 ## License
 
-MIT — see [`LICENSE`](LICENSE). Copyright © 2026 Julius Grimm.
+Copyright © 2026 Julius Grimm. All rights reserved. Fernweh is free to download and play for
+personal, non-commercial use. Modifying and redistributing the game, or using its code in
+another project, requires prior written permission from the author — see
+[`LICENSE`](LICENSE) for the full terms, and reach out to me@juliusgrimm.dev to request
+permission beyond what's granted there.
