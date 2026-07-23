@@ -11,8 +11,10 @@ from fernweh.afflictions import hardship_level
 from fernweh.ending import generate_ending
 from fernweh.particles import ParticleSystem, particle_kind_for_weather
 from fernweh.stages import Choice, apply_choice, choice_is_available, load_stages
-from fernweh.state import GameState
+from fernweh.state import MAX_COMPANIONS, GameState
 from fernweh.tween import Tween, ease_out_quad
+
+COMPANY_FULL_REASON = "your company is already full"
 
 WINDOW_SIZE = (960, 600)
 MARGIN = 48
@@ -162,10 +164,12 @@ class Game:
         top = MARGIN + TEXT_AREA_HEIGHT
         for choice in self.choices:
             rect = pygame.Rect(MARGIN, top, WINDOW_SIZE[0] - 2 * MARGIN, BUTTON_HEIGHT)
-            available = choice_is_available(choice, self.state.afflictions)
-            self.buttons.append(
-                ui.ChoiceButton(rect, choice.text, available, choice.unavailable_reason)
+            company_full = (
+                choice.companion is not None and len(self.state.companions) >= MAX_COMPANIONS
             )
+            available = choice_is_available(choice, self.state.afflictions) and not company_full
+            reason = COMPANY_FULL_REASON if company_full else choice.unavailable_reason
+            self.buttons.append(ui.ChoiceButton(rect, choice.text, available, reason))
             top += BUTTON_HEIGHT + BUTTON_SPACING
 
     def _draw(self) -> None:
