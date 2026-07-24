@@ -24,6 +24,8 @@ class Palette:
     dialogs, text backings) always use `panel`, never `ground`. `accent` is
     the season's one saturated "character" color, used for the sky's soft
     sun/moon glow — everything else in the palette is deliberately muted.
+    `foliage` is the tree canopy color; winter has no foliage (bare branches
+    instead), so it's `None` there rather than every season needing one.
     """
 
     def __init__(
@@ -34,6 +36,7 @@ class Palette:
         panel: Color,
         accent: Color,
         text: Color,
+        foliage: Color | None = None,
     ) -> None:
         self.sky_top = sky_top
         self.sky_bottom = sky_bottom
@@ -41,6 +44,7 @@ class Palette:
         self.panel = panel
         self.accent = accent
         self.text = text
+        self.foliage = foliage
 
 
 SEASON_PALETTES: dict[str, Palette] = {
@@ -51,6 +55,7 @@ SEASON_PALETTES: dict[str, Palette] = {
         panel=(240, 244, 232),
         accent=(247, 200, 200),
         text=(48, 58, 46),
+        foliage=(240, 196, 206),
     ),
     "summer": Palette(
         sky_top=(247, 214, 150),
@@ -59,6 +64,7 @@ SEASON_PALETTES: dict[str, Palette] = {
         panel=(250, 240, 214),
         accent=(255, 221, 133),
         text=(66, 50, 24),
+        foliage=(94, 138, 68),
     ),
     "autumn": Palette(
         sky_top=(214, 150, 96),
@@ -67,6 +73,7 @@ SEASON_PALETTES: dict[str, Palette] = {
         panel=(247, 228, 202),
         accent=(232, 140, 84),
         text=(56, 34, 18),
+        foliage=(198, 92, 56),
     ),
     "winter": Palette(
         sky_top=(202, 214, 224),
@@ -75,6 +82,7 @@ SEASON_PALETTES: dict[str, Palette] = {
         panel=(240, 245, 250),
         accent=(226, 236, 246),
         text=(40, 48, 56),
+        foliage=None,
     ),
 }
 
@@ -103,6 +111,20 @@ CLOUDS = (
     (0.16, 7.0, 1.0, 0.05),
     (0.32, 4.5, 0.7, 0.45),
     (0.08, 9.5, 0.55, 0.78),
+)
+# Trees stand in the foreground, each a (x_ratio, scale, sway_phase) tuple.
+# Placed mostly near the left/right edges (outside where choice buttons sit,
+# which run from MARGIN to width - MARGIN in game.py) so they stay visible
+# once the button list is drawn on top of the scene, plus a couple of smaller
+# ones nearer the middle for depth wherever the UI leaves them visible (the
+# ending screen, the dialog, the gap above the buttons).
+TREES = (
+    (0.025, 1.0, 0.4),
+    (0.075, 0.72, 2.1),
+    (0.40, 0.5, 3.4),
+    (0.62, 0.55, 1.1),
+    (0.925, 0.85, 2.7),
+    (0.975, 0.62, 0.8),
 )
 
 
@@ -134,13 +156,14 @@ def desaturate_palette(palette: Palette, amount: float) -> Palette:
         panel=_desaturate(palette.panel, amount),
         accent=_desaturate(palette.accent, amount),
         text=palette.text,
+        foliage=_desaturate(palette.foliage, amount) if palette.foliage else None,
     )
 
 
 def draw_scene(
     surface: pygame.Surface, season: str, desaturation: float = 0.0, elapsed: float = 0.0
 ) -> None:
-    """Draw a full seasonal scene: sky, sun/moon, drifting clouds, hills, and ground.
+    """Draw a full seasonal scene: sky, sun/moon, drifting clouds, hills, ground, and trees.
 
     `desaturation` in [0, 1] pulls all colors toward grey, expressing hardship
     level without any per-affliction special-casing. `elapsed` (seconds since
@@ -188,6 +211,10 @@ def draw_scene(
             width=width,
             height=height,
         )
+
+    # Trees stand on top of everything else in the scene — the nearest layer,
+    # rooted in the ground band.
+    _draw_trees(surface, palette, width, height, ground_height, elapsed)
 
 
 def _draw_clouds(
@@ -273,6 +300,66 @@ def _draw_hill(
     # alone nearly disappears. `aalines` (vs. `lines`) keeps it a soft edge
     # rather than a hard, technical-looking outline.
     pygame.draw.aalines(surface, _darken(color, 0.14), False, crest_points)
+
+
+def _draw_trees(
+    surface: pygame.Surface,
+    palette: Palette,
+    width: int,
+    height: int,
+    ground_height: float,
+    elapsed: float,
+) -> None:
+    """Draw the foreground tree line: canopy trees, or bare branches in winter."""
+    trunk_color = _darken(palette.ground, 0.38)
+    for x_ratio, scale, phase in TREES:
+        x = width * x_ratio
+        base_y = height - ground_height * 0.06
+        trunk_height = ground_height * 0.34 * scale
+        # A slow sine sway on the canopy/branch offset, not the trunk itself —
+        # real trees flex at the top, not pivot from the root.
+        sway = math.sin(elapsed * 0.6 + phase) * 4 * scale
+        top = (x + sway, base_y - trunk_height)
+        pygame.draw.line(surface, trunk_color, (x, base_y), top, max(2, round(5 * scale)))
+        if palette.foliage is None:
+            _draw_bare_branches(surface, trunk_color, top, scale, sway)
+        else:
+            _draw_canopy(surface, palette.foliage, top, scale)
+
+
+def _draw_canopy(
+    surface: pygame.Surface, color: Color, top: tuple[float, float], scale: float
+) -> None:
+    """Draw a tree's canopy as a cluster of overlapping circles, same technique as clouds."""
+    puffs = ((-0.55, 0.1, 0.55), (0.0, -0.35, 0.68), (0.55, 0.1, 0.55), (0.0, 0.3, 0.6))
+    unit = 26 * scale
+    canopy_size = round(unit * 4.5)
+    canopy = pygame.Surface((canopy_size, canopy_size), pygame.SRCALPHA)
+    center = canopy_size / 2
+    for dx, dy, radius_ratio in puffs:
+        pygame.draw.circle(
+            canopy,
+            color,
+            (round(center + dx * unit), round(center + dy * unit)),
+            round(unit * radius_ratio),
+        )
+    # The canopy sits centered on the trunk's top, extending mostly upward.
+    surface.blit(canopy, (top[0] - center, top[1] - center * 1.3))
+
+
+def _draw_bare_branches(
+    surface: pygame.Surface, color: Color, top: tuple[float, float], scale: float, sway: float
+) -> None:
+    """Draw a winter tree's bare branch fork instead of a canopy — no foliage to show."""
+    branch_length = 16 * scale
+    # Three diverging branches from the trunk's top, each swaying slightly
+    # more than the trunk itself since thinner branches flex further.
+    for angle_offset in (-0.6, 0.0, 0.6):
+        end = (
+            top[0] + sway * 0.5 + math.sin(angle_offset) * branch_length,
+            top[1] - math.cos(angle_offset) * branch_length,
+        )
+        pygame.draw.line(surface, color, top, end, max(1, round(2 * scale)))
 
 
 def _lerp_color(a: Color, b: Color, t: float) -> Color:

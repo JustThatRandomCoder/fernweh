@@ -210,6 +210,19 @@ is computed directly from an `elapsed` seconds-since-startup value passed into `
 (tracked in `Game._elapsed`, accumulated in `_update`), rather than the cloud holding any
 mutable state of its own, so `draw_scene` stays a pure function of its arguments.
 
+**Trees (`_draw_trees`).** A foreground layer of procedural trees, positioned by the `TREES`
+constant (`x_ratio, scale, sway_phase` tuples) mostly near the left/right edges of the window —
+outside where `game.py` draws choice buttons (`MARGIN` to `width - MARGIN`) — so they stay
+visible once the button list is on screen, plus a couple of smaller ones nearer the middle for
+depth wherever the UI leaves them visible. Each tree is a trunk (`pygame.draw.line`) topped
+with either a canopy (`_draw_canopy`, the same overlapping-circles technique as clouds) or, for
+winter, a bare three-branch fork (`_draw_bare_branches`) — winter's `Palette.foliage` is `None`
+specifically to drive that branch, rather than winter getting a colorless canopy. The canopy
+color comes from a new `Palette.foliage` field (separate from `accent`, since a tree's canopy
+and the sky's sun/moon glow are different "characters" of the same season). Sway is applied
+only to the canopy/branch offset, not the trunk's root point, using the same `elapsed`-driven
+sine approach as cloud drift — a real tree flexes at the top, it doesn't pivot from the ground.
+
 **Particles (`particles.py`).** One `ParticleSystem` class parameterized by a
 `ParticleKind` (color, size range, fall speed range, horizontal drift range, count, shape)
 covers all three weather effects (`drizzle`, `snow`, `falling_leaves`). Adding a new weather
