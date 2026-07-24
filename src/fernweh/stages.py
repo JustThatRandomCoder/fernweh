@@ -85,19 +85,28 @@ def apply_choice(state: GameState, choice: Choice, rng: random.Random | None = N
     if state.ended:
         return
 
+    # Tests pass a seeded rng so affliction rolls are deterministic; real play
+    # just gets fresh randomness.
     rng = rng or random.Random()
 
+    # 1. The stage itself costs resources before the player's choice does —
+    # this is the "the road drains you regardless" baseline.
     energy_drain, supplies_drain = base_stage_drain(state)
     state.apply_energy_delta(-energy_drain)
     state.apply_supplies_delta(-supplies_drain)
+    # A fatal drain here ends the journey immediately — the choice's own
+    # effects below never get to apply to an already-ended game.
     if state.ended:
         return
 
+    # 2. The choice's own resource cost/reward.
     state.apply_energy_delta(choice.effects.get("energy", 0))
     state.apply_supplies_delta(choice.effects.get("supplies", 0))
     if state.ended:
         return
 
+    # 3. Non-resource consequences: collectibles, a new companion, cures, and
+    # any affliction this specific choice risks (e.g. a risky winter shortcut).
     if choice.memory:
         state.add_memory(choice.memory)
     if choice.companion:
@@ -108,6 +117,8 @@ def apply_choice(state: GameState, choice: Choice, rng: random.Random | None = N
         if rng.random() < chance:
             state.add_affliction(affliction_id)
 
+    # 4. Exhausted is a threshold check (not a roll), then move to the next
+    # stage, then roll Ill "at the start of" the stage just arrived at.
     maybe_trigger_exhausted(state)
     state.advance_stage()
     if not state.ended:
@@ -118,6 +129,9 @@ def _parse_stage(raw: dict[str, Any]) -> Stage:
     choices = tuple(_parse_choice(c, raw["season"]) for c in raw["choices"])
     if not 2 <= len(choices) <= 3:
         raise ContentError(f"stage {raw.get('id')} must have 2-3 choices, got {len(choices)}")
+    # `season` is declared explicitly in the JSON *and* cross-checked here against
+    # what the stage index implies — catches a copy-paste error where a stage
+    # ends up filed under the wrong season heading in the content file.
     expected_season = stage_season(raw["id"])
     if raw["season"] != expected_season:
         raise ContentError(
@@ -144,6 +158,8 @@ def _parse_choice(raw: dict[str, Any], season: str) -> Choice:
             raise ContentError(
                 f"choice {raw.get('id')} references unknown affliction '{affliction_id}'"
             )
+        # Frostbitten is a winter-only risk by design — this is the load-time
+        # enforcement that keeps it from ever being attached to a non-winter stage.
         if affliction_id == "frostbitten" and season != "winter":
             raise ContentError(
                 f"choice {raw.get('id')} can only risk frostbitten in a winter stage"

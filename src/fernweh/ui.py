@@ -12,12 +12,17 @@ Color = tuple[int, int, int]
 
 def wrap_text(text: str, font: pygame.font.Font, max_width: int) -> list[str]:
     """Split `text` into lines that each fit within `max_width` pixels."""
+    # Greedy word-wrap: keep adding words to the current line as long as it
+    # still measures within max_width; once it doesn't, close the line out and
+    # start a new one with the word that overflowed.
     words = text.split()
     lines: list[str] = []
     current_words: list[str] = []
 
     for word in words:
         candidate = " ".join([*current_words, word])
+        # `or not current_words` forces a single very long word onto its own
+        # line instead of looping forever trying to fit it.
         if font.size(candidate)[0] <= max_width or not current_words:
             current_words.append(word)
         else:
@@ -44,6 +49,9 @@ def draw_panel(
     dialog, text backings) shares, so panels read as a single visual language
     instead of each screen inventing its own box.
     """
+    # Shadow first, so the panel itself draws on top of it. It's on its own
+    # SRCALPHA surface because pygame.draw.rect can't take a translucent color
+    # directly on an opaque destination surface.
     shadow_rect = rect.move(0, shadow_offset)
     shadow = pygame.Surface(rect.size, pygame.SRCALPHA)
     pygame.draw.rect(
@@ -51,6 +59,9 @@ def draw_panel(
     )
     surface.blit(shadow, shadow_rect.topleft)
 
+    # Fully opaque panels can draw straight onto the destination surface; a
+    # translucent one needs its own alpha surface first (same reason as the
+    # shadow above) so the scene behind can show through by the right amount.
     if alpha >= 255:
         pygame.draw.rect(surface, color, rect, border_radius=border_radius)
     else:
@@ -105,6 +116,8 @@ class TypewriterText:
         """Advance the reveal by `dt` seconds at a hardship-scaled speed."""
         if self.done:
             return
+        # Each active affliction slows the reveal by another 30%, floored at
+        # 25% of base speed so text never becomes painfully slow to read.
         multiplier = max(
             self.MIN_SPEED_MULTIPLIER,
             1 - self.SPEED_REDUCTION_PER_HARDSHIP_LEVEL * hardship_level,
@@ -154,6 +167,9 @@ class ChoiceButton:
     def update(self, dt: float, mouse_pos: tuple[int, int], mouse_down: bool) -> None:
         """Advance hover/press animation state given the current mouse input."""
         hovering = self.available and self.rect.collidepoint(mouse_pos)
+        # Nudges elapsed time up while hovering, down while not — the mouse
+        # can enter or leave mid-animation, so this needs to move smoothly in
+        # either direction rather than jumping straight to an end state.
         direction = 1.0 if hovering else -1.0
         self._hover_elapsed = max(
             0.0, min(self.HOVER_ANIMATION_DURATION, self._hover_elapsed + direction * dt)
@@ -239,6 +255,9 @@ class IntroDialog:
         scene behind (situation text, choice buttons) can bleed through and
         overlap the dialog's own text.
         """
+        # Dim the whole scene first (no text drawn on the scrim itself), then
+        # draw an opaque card on top for the actual page text — that split is
+        # what keeps the scene behind from ever bleeding through the text.
         scrim = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
         scrim.fill((0, 0, 0, self.SCRIM_ALPHA))
         surface.blit(scrim, (0, 0))

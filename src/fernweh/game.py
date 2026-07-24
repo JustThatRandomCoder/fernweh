@@ -67,6 +67,10 @@ class Game:
         pygame.quit()
 
     def _handle_events(self) -> None:
+        # Branches are checked in priority order: quitting always wins, then
+        # an open dialog swallows all input, then "H" reopens the dialog,
+        # then any key/click first skips an in-progress typewriter reveal
+        # before it's allowed to do anything else (like clicking a choice).
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
@@ -118,11 +122,17 @@ class Game:
             button.update(dt, mouse_pos, mouse_down)
 
     def _sync_stage(self) -> None:
+        # The single source of truth for "the displayed stage changed": it's
+        # keyed off comparing state.stage_index to the last-synced value, so
+        # it runs exactly once per stage change no matter how many events
+        # (or frames) triggered the underlying state update.
         if self.state.ended:
             self._sync_ending()
             return
         if self.state.stage_index == self._synced_stage_index:
             return
+        # Snapshot the current frame and start a crossfade — skipped on the
+        # very first sync (there's no previous stage to fade from yet).
         if self._synced_stage_index is not None:
             self._previous_frame = self.screen.copy()
             self._transition = Tween(
@@ -139,6 +149,10 @@ class Game:
         self._build_buttons(stage.choices)
 
     def _sync_ending(self) -> None:
+        # A parallel sync path to _sync_stage: reaching the ending doesn't
+        # necessarily mean stage_index changed (a mid-stage failure ends the
+        # game without advancing), so it needs its own "have we already
+        # synced this?" flag rather than reusing _synced_stage_index.
         if self._synced_ended:
             return
         self._synced_ended = True
@@ -175,16 +189,26 @@ class Game:
             top += BUTTON_HEIGHT + BUTTON_SPACING
 
     def _draw(self) -> None:
+        # `desaturation` is the one number driving all hardship visuals: 0 at
+        # full health, capping out at MAX_DESATURATION_AFFLICTIONS active
+        # afflictions. It's used both for the background (via draw_scene) and
+        # for every UI surface below (via the desaturated `palette`).
         desaturation = hardship_level(self.state) / MAX_DESATURATION_AFFLICTIONS
         scenes.draw_scene(self.screen, self.state.season, desaturation)
 
         if self.particle_system:
             self.particle_system.draw(self.screen)
 
+        # Same desaturation applied to the palette used for UI drawing below,
+        # so buttons/panels darken and mute in step with the background —
+        # `text` stays untouched inside desaturate_palette, so labels stay
+        # legible no matter how harsh the journey has gotten.
         palette = scenes.desaturate_palette(
             scenes.palette_for_season(self.state.season), desaturation
         )
 
+        # The backing panel behind the situation text grows to also cover the
+        # keepsakes list once the journey has ended and that text is showing.
         panel_height = TEXT_AREA_HEIGHT
         if self.typewriter.done and self.state.ended:
             panel_height += KEEPSAKES_AREA_HEIGHT
@@ -230,6 +254,10 @@ class Game:
             for button in self.buttons:
                 button.draw(self.screen, self.font, palette)
 
+        # Crossfade: the previous stage's frozen frame is blitted on top of
+        # the newly-drawn current stage, fading its own alpha from opaque to
+        # 0 over the transition — the "new" content is drawn once and simply
+        # revealed underneath as the old frame fades out.
         if self._transition and not self._transition.done and self._previous_frame:
             self._previous_frame.set_alpha(round(self._transition.value))
             self.screen.blit(self._previous_frame, (0, 0))

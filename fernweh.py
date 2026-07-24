@@ -110,12 +110,18 @@ def _running_inside_venv() -> bool:
 
 def _bootstrap() -> None:
     """Ensure a venv exists with current dependencies, then re-exec inside it."""
+    # Three independent checks, each a no-op if already satisfied — so a
+    # second run of this script does nothing but the final re-exec check.
     if not VENV_DIR.exists():
         _create_venv()
 
     if not _dependencies_up_to_date():
         _install_dependencies()
 
+    # If we're not actually running inside the venv yet (first run, or the
+    # venv was just created), replace this process with the venv's own
+    # Python running this same script — `pygame` and friends are only
+    # importable from inside the venv.
     if not _running_inside_venv():
         venv_python = _venv_python()
         script = str(Path(__file__).resolve())
@@ -124,6 +130,9 @@ def _bootstrap() -> None:
 
 def main() -> None:
     _bootstrap()
+    # Only reachable once we're guaranteed to be running inside the venv, so
+    # `pygame` (installed there) is now safely importable via the `fernweh`
+    # package under `src/`.
     sys.path.insert(0, str(REPO_ROOT / "src"))
     from fernweh.game import run
 

@@ -77,6 +77,8 @@ class Tween:
         """Advance the tween by `dt` seconds and return the current value."""
         if self.done:
             return self.value
+        # Clamp elapsed time to duration so a large `dt` (e.g. a stutter) can't
+        # overshoot past 1.0 progress or fire on_complete more than once.
         self.elapsed = min(self.duration, self.elapsed + dt)
         eased_t = self.easing(self.elapsed / self.duration)
         self.value = self.start + (self.end - self.start) * eased_t

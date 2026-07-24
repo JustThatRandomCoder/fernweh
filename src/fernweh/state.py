@@ -8,12 +8,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+# The two resources the whole game balances against; both live on a 0-100 scale.
 MAX_ENERGY = 100
 MAX_SUPPLIES = 100
 MAX_COMPANIONS = 4
 STAGES_PER_SEASON = 5
 TOTAL_STAGES = 20
 
+# Fixed season order — the journey always walks through these four in this order.
 SEASONS = ("spring", "summer", "autumn", "winter")
 
 
@@ -43,6 +45,9 @@ class GameState:
     @property
     def season(self) -> str:
         """Season name for the current stage index."""
+        # Season is derived from stage_index rather than stored separately, so
+        # the two can never drift out of sync. `min(...)` guards against the
+        # final stage landing exactly on a season boundary and overshooting.
         season_number = min(self.stage_index // STAGES_PER_SEASON, len(SEASONS) - 1)
         return SEASONS[season_number]
 
@@ -67,6 +72,9 @@ class GameState:
         self._check_failure()
 
     def _check_failure(self) -> None:
+        # Runs after every resource change so a fatal drain is caught the
+        # instant it happens, rather than needing a separate "check failure"
+        # step the caller might forget to call.
         if not self.ended and (self.energy <= 0 or self.supplies <= 0):
             self.ended = True
             self.end_reason = "failure"
@@ -92,6 +100,8 @@ class GameState:
 
     def advance_stage(self) -> None:
         """Move to the next stage, or mark the journey complete at the end."""
+        # Once ended, this is a no-op — a stray call after the journey is over
+        # (failure or completion) can't resurrect it or skip stages.
         if self.ended:
             return
         if self.stage_index >= TOTAL_STAGES - 1:

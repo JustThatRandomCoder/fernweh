@@ -26,6 +26,8 @@ class ParticleKind:
     count: int
 
 
+# One entry per weather effect a stage can declare in content/stages.json. Adding a new
+# weather effect is adding a new entry here — no new class or renderer branch needed.
 WEATHER_KINDS: dict[str, ParticleKind] = {
     "drizzle": ParticleKind(
         color=(150, 170, 190),
@@ -90,6 +92,9 @@ class ParticleSystem:
         for particle in self.particles:
             particle.x += particle.vx * dt
             particle.y += particle.vy * dt
+            # A particle that's fallen past the bottom or drifted off either
+            # side gets respawned at the top instead of removed — this keeps
+            # the particle count constant forever, no pooling/GC needed.
             if particle.y > self.height or particle.x < -10 or particle.x > self.width + 10:
                 self._respawn(particle)
 
@@ -104,6 +109,9 @@ class ParticleSystem:
     def _spawn(self, scattered: bool) -> Particle:
         kind = self.kind
         x = self.rng.uniform(0, self.width)
+        # `scattered=True` (only used for the initial fill) places particles
+        # anywhere in the frame, so the scene doesn't start empty and take a
+        # moment to fill up; every respawn afterward starts just above the top.
         y = self.rng.uniform(0, self.height) if scattered else -10.0
         vy = self.rng.uniform(*kind.fall_speed_range)
         vx = self.rng.uniform(*kind.drift_range)
@@ -111,6 +119,8 @@ class ParticleSystem:
         return Particle(x, y, vx, vy, size)
 
     def _respawn(self, particle: Particle) -> None:
+        # Re-rolls a fresh particle's values into the existing object rather
+        # than allocating a new one, so `self.particles` never changes length.
         fresh = self._spawn(scattered=False)
         particle.x, particle.y = fresh.x, fresh.y
         particle.vx, particle.vy, particle.size = fresh.vx, fresh.vy, fresh.size

@@ -23,7 +23,10 @@ Conventions for working in this repo. Keep this file in sync as conventions soli
   format, library choice, tradeoff) — not saved up for the end.
 - Type hints on all function signatures. Docstrings on every module, class, and public
   function/method, describing purpose/args/returns.
-- No filler comments, no scaffolding/TODO placeholders, no decorative comment banners.
+- Write human-readable inline comments throughout — explain what a block of code is and what
+  it's doing, in plain language, for a reader who doesn't already know this codebase. Still no
+  decorative comment banners or TODO placeholders, and don't restate what a well-named line
+  already says on its own — but err toward explaining, not toward silence.
 
 ## Reference docs
 

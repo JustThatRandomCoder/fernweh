@@ -76,6 +76,15 @@ def palette_for_season(season: str) -> Palette:
     return SEASON_PALETTES[season]
 
 
+def _desaturate(color: Color, amount: float) -> Color:
+    # Pulls a color toward its own grey (average of its channels), not toward
+    # a fixed neutral grey — so a warm color desaturates to a light grey and a
+    # dark color desaturates to a dark grey, instead of everything converging
+    # on the same midpoint.
+    grey = sum(color) / 3
+    return _lerp_color(color, (grey, grey, grey), max(0.0, min(1.0, amount)))
+
+
 def desaturate_palette(palette: Palette, amount: float) -> Palette:
     """Return a copy of `palette` with its scenery/UI colors pulled toward grey.
 
@@ -103,6 +112,9 @@ def draw_scene(surface: pygame.Surface, season: str, desaturation: float = 0.0) 
     ground_height = int(height * GROUND_HEIGHT_RATIO)
     sky_height = height - ground_height
 
+    # Draw the sky one horizontal line at a time, blending further toward
+    # sky_bottom the further down the line is — this is what makes the
+    # gradient, there's no separate gradient asset or shader.
     for y in range(sky_height):
         t = y / max(1, sky_height - 1)
         color = _lerp_color(palette.sky_top, palette.sky_bottom, t)
@@ -112,13 +124,9 @@ def draw_scene(surface: pygame.Surface, season: str, desaturation: float = 0.0) 
 
 
 def _lerp_color(a: Color, b: Color, t: float) -> Color:
+    """Blend two colors channel-by-channel; `t=0` gives `a`, `t=1` gives `b`."""
     return (
         round(a[0] + (b[0] - a[0]) * t),
         round(a[1] + (b[1] - a[1]) * t),
         round(a[2] + (b[2] - a[2]) * t),
     )
-
-
-def _desaturate(color: Color, amount: float) -> Color:
-    grey = sum(color) / 3
-    return _lerp_color(color, (grey, grey, grey), max(0.0, min(1.0, amount)))
