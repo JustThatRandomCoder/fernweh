@@ -29,6 +29,38 @@ def wrap_text(text: str, font: pygame.font.Font, max_width: int) -> list[str]:
     return lines
 
 
+def draw_panel(
+    surface: pygame.Surface,
+    rect: pygame.Rect,
+    color: Color,
+    border_color: Color,
+    alpha: int = 255,
+    border_radius: int = 14,
+    shadow_offset: int = 3,
+) -> None:
+    """Draw one rounded card: soft drop shadow, fill, then a thin border.
+
+    This is the one surface treatment every UI element (buttons, the intro
+    dialog, text backings) shares, so panels read as a single visual language
+    instead of each screen inventing its own box.
+    """
+    shadow_rect = rect.move(0, shadow_offset)
+    shadow = pygame.Surface(rect.size, pygame.SRCALPHA)
+    pygame.draw.rect(
+        shadow, (0, 0, 0, round(60 * alpha / 255)), shadow.get_rect(), border_radius=border_radius
+    )
+    surface.blit(shadow, shadow_rect.topleft)
+
+    if alpha >= 255:
+        pygame.draw.rect(surface, color, rect, border_radius=border_radius)
+    else:
+        card = pygame.Surface(rect.size, pygame.SRCALPHA)
+        pygame.draw.rect(card, (*color, alpha), card.get_rect(), border_radius=border_radius)
+        surface.blit(card, rect.topleft)
+
+    pygame.draw.rect(surface, border_color, rect, width=1, border_radius=border_radius)
+
+
 def draw_wrapped_text(
     surface: pygame.Surface,
     text: str,
@@ -146,8 +178,7 @@ class ChoiceButton:
             round(self.rect.width * (scale - 1)), round(self.rect.height * (scale - 1))
         )
         text_color = palette.text if self.available else dim_color(palette.text)
-        pygame.draw.rect(surface, palette.ground, scaled_rect, border_radius=10)
-        pygame.draw.rect(surface, text_color, scaled_rect, width=1, border_radius=10)
+        draw_panel(surface, scaled_rect, palette.panel, dim_color(palette.panel))
 
         label = self.text
         if not self.available and self.unavailable_reason:
@@ -180,7 +211,8 @@ class IntroDialog:
     dialog, just re-opened, not a separate help screen to keep in sync.
     """
 
-    OVERLAY_ALPHA = 235
+    SCRIM_ALPHA = 165
+    CARD_HEIGHT = 280
 
     def __init__(self, pages: tuple[str, ...] = INTRO_PAGES) -> None:
         self.pages = pages
@@ -200,14 +232,33 @@ class IntroDialog:
         hint_font: pygame.font.Font,
         palette: Palette,
     ) -> None:
-        """Draw the current page over a translucent overlay covering the screen."""
-        overlay = pygame.Surface(surface.get_size())
-        overlay.fill(palette.sky_bottom)
-        overlay.set_alpha(self.OVERLAY_ALPHA)
-        surface.blit(overlay, (0, 0))
+        """Draw the current page on an opaque card over a dimmed scene.
+
+        The scene is dimmed with a translucent scrim, but the card itself is
+        fully opaque — unlike a translucent full-screen wash, nothing from the
+        scene behind (situation text, choice buttons) can bleed through and
+        overlap the dialog's own text.
+        """
+        scrim = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
+        scrim.fill((0, 0, 0, self.SCRIM_ALPHA))
+        surface.blit(scrim, (0, 0))
 
         margin = 64
-        text_rect = pygame.Rect(margin, margin, surface.get_width() - 2 * margin, 240)
+        card_rect = pygame.Rect(
+            margin,
+            (surface.get_height() - self.CARD_HEIGHT) // 2,
+            surface.get_width() - 2 * margin,
+            self.CARD_HEIGHT,
+        )
+        draw_panel(surface, card_rect, palette.panel, dim_color(palette.panel))
+
+        inner_margin = 32
+        text_rect = pygame.Rect(
+            card_rect.left + inner_margin,
+            card_rect.top + inner_margin,
+            card_rect.width - 2 * inner_margin,
+            card_rect.height - 2 * inner_margin,
+        )
         draw_wrapped_text(surface, self.pages[self.page_index], font, palette.text, text_rect)
 
         hint = f"{self.page_index + 1} / {len(self.pages)}    click or press any key to continue"
@@ -215,6 +266,6 @@ class IntroDialog:
         surface.blit(
             hint_surface,
             hint_surface.get_rect(
-                midbottom=(surface.get_width() // 2, surface.get_height() - margin // 2)
+                midbottom=(surface.get_width() // 2, card_rect.bottom - inner_margin // 2)
             ),
         )

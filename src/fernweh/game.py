@@ -23,6 +23,8 @@ MAX_DESATURATION_AFFLICTIONS = 4
 TRANSITION_DURATION = 0.6
 TRANSITION_START_ALPHA = 255
 TEXT_AREA_HEIGHT = 200
+TEXT_PANEL_PADDING = 20
+TEXT_PANEL_ALPHA = 225
 BUTTON_HEIGHT = 56
 BUTTON_SPACING = 16
 KEEPSAKES_AREA_HEIGHT = 120
@@ -179,8 +181,27 @@ class Game:
         if self.particle_system:
             self.particle_system.draw(self.screen)
 
+        palette = scenes.desaturate_palette(
+            scenes.palette_for_season(self.state.season), desaturation
+        )
+
+        panel_height = TEXT_AREA_HEIGHT
+        if self.typewriter.done and self.state.ended:
+            panel_height += KEEPSAKES_AREA_HEIGHT
+        text_panel_rect = pygame.Rect(
+            MARGIN - TEXT_PANEL_PADDING,
+            MARGIN - TEXT_PANEL_PADDING,
+            WINDOW_SIZE[0] - 2 * MARGIN + 2 * TEXT_PANEL_PADDING,
+            panel_height + TEXT_PANEL_PADDING,
+        )
+        ui.draw_panel(
+            self.screen,
+            text_panel_rect,
+            palette.panel,
+            ui.dim_color(palette.panel),
+            alpha=TEXT_PANEL_ALPHA,
+        )
         text_rect = pygame.Rect(MARGIN, MARGIN, WINDOW_SIZE[0] - 2 * MARGIN, TEXT_AREA_HEIGHT)
-        palette = scenes.palette_for_season(self.state.season)
         ui.draw_wrapped_text(
             self.screen, self.typewriter.visible_text(), self.font, palette.text, text_rect
         )

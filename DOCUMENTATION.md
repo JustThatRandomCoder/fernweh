@@ -142,12 +142,36 @@ scored or ranked, since memories carry no gameplay weight, only atmosphere.
 
 ## Rendering & Animation
 
-**Scenes (`scenes.py`).** Every season maps to a `Palette` (sky top/bottom, ground, text
-color). `draw_scene` renders a vertical sky gradient over a ground band using only
+**Scenes (`scenes.py`).** Every season maps to a `Palette` (sky top/bottom, ground, panel,
+text color). `draw_scene` renders a vertical sky gradient over a ground band using only
 `pygame.draw` primitives — there are no image assets anywhere in this project. A single
 `desaturation` parameter (0–1) pulls every color toward grey; `game.py` derives this from
 `afflictions.hardship_level` divided by a cap, so visual harshness scales with active
 afflictions generically rather than through per-affliction rendering branches.
+
+**`ground` vs. `panel`.** These were originally the same color (`ground` doubled as both
+terrain fill and UI button fill), which is what produced a real contrast bug: autumn's
+`ground` (140, 84, 48) against its `text` (56, 34, 18) measures 2.44:1, well under WCAG AA's
+4.5:1 floor, making autumn choice buttons hard to read. `panel` is a separate, near-white
+tone tuned per season so `text` always clears >10:1 against it (verified for all four
+seasons); `ground` stays tuned purely for how outdoor terrain should look. UI surfaces
+(buttons, the intro dialog, the text backing behind situation text) use `panel`, never
+`ground`. `desaturate_palette(palette, amount)` is the single function that applies hardship
+desaturation to `sky_top`/`sky_bottom`/`ground`/`panel` — `text` is deliberately excluded, so
+hardship can darken and mute the world without ever eroding the contrast that keeps prose and
+UI labels readable. `draw_scene` and `game.py`'s UI drawing both call it, rather than each
+desaturating colors independently.
+
+**Panels (`ui.draw_panel`).** One helper (rounded rect, flat drop shadow, thin border, all
+in a season's `panel`/dimmed-`panel` colors) is the single surface treatment shared by
+`ChoiceButton`, `IntroDialog`, and the backing behind the situation text in `game.py` — so
+every "card" in the game reads as one visual language instead of each screen inventing its
+own box. `IntroDialog` in particular used to fill the whole screen with a translucent wash
+(`sky_bottom` at 235/255 alpha) and draw text directly on it; at that alpha, the game screen
+underneath — its own situation text, its own choice buttons — bled through faintly behind the
+dialog's text, reading as ghosting/visual noise more than a specific contrast failure. The
+fix draws a translucent full-screen scrim (dims the scene, carries no text) and a fully
+opaque `panel` card on top for the actual page text, so nothing behind can bleed through.
 
 **Particles (`particles.py`).** One `ParticleSystem` class parameterized by a
 `ParticleKind` (color, size range, fall speed range, horizontal drift range, count) covers
