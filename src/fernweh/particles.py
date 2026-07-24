@@ -24,28 +24,35 @@ class ParticleKind:
     fall_speed_range: tuple[float, float]
     drift_range: tuple[float, float]
     count: int
+    # "streak" draws a short line trailing behind the particle's motion
+    # (reads as rain), "circle" draws a filled dot (reads as snow/leaves).
+    shape: str = "circle"
 
 
 # One entry per weather effect a stage can declare in content/stages.json. Adding a new
 # weather effect is adding a new entry here — no new class or renderer branch needed.
 WEATHER_KINDS: dict[str, ParticleKind] = {
     "drizzle": ParticleKind(
-        color=(150, 170, 190),
-        size_range=(1, 2),
+        # A darker, more saturated blue-grey than the original near-invisible
+        # tone, plus a "streak" shape — at this fall speed a dot reads as a
+        # barely-visible speck, but a short motion trail reads as rain.
+        color=(96, 118, 150),
+        size_range=(2, 3),
         fall_speed_range=(220, 340),
         drift_range=(-10, 10),
         count=90,
+        shape="streak",
     ),
     "snow": ParticleKind(
         color=(255, 255, 255),
-        size_range=(2, 4),
+        size_range=(2.5, 5),
         fall_speed_range=(25, 65),
         drift_range=(-20, 20),
         count=70,
     ),
     "falling_leaves": ParticleKind(
-        color=(196, 120, 48),
-        size_range=(3, 5),
+        color=(206, 122, 42),
+        size_range=(3.5, 6.5),
         fall_speed_range=(35, 85),
         drift_range=(-35, 35),
         count=40,
@@ -99,12 +106,25 @@ class ParticleSystem:
                 self._respawn(particle)
 
     def draw(self, surface: pygame.Surface) -> None:
-        """Draw all particles as small filled circles onto `surface`."""
+        """Draw all particles, as streaks (rain) or filled circles (snow/leaves)."""
         color = self.kind.color
-        for particle in self.particles:
-            pygame.draw.circle(
-                surface, color, (int(particle.x), int(particle.y)), max(1, round(particle.size))
-            )
+        if self.kind.shape == "streak":
+            # A short line trailing back along the particle's own velocity —
+            # scaled by size so bigger drops get a slightly longer streak.
+            for particle in self.particles:
+                trail = 0.03 * max(1.0, particle.size)
+                end = (particle.x - particle.vx * trail, particle.y - particle.vy * trail)
+                pygame.draw.line(
+                    surface, color, (particle.x, particle.y), end, max(1, round(particle.size))
+                )
+        else:
+            for particle in self.particles:
+                pygame.draw.circle(
+                    surface,
+                    color,
+                    (round(particle.x), round(particle.y)),
+                    max(1, round(particle.size)),
+                )
 
     def _spawn(self, scattered: bool) -> Particle:
         kind = self.kind

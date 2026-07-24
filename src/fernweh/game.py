@@ -26,7 +26,8 @@ TEXT_AREA_HEIGHT = 200
 TEXT_PANEL_PADDING = 20
 TEXT_PANEL_ALPHA = 225
 BUTTON_HEIGHT = 56
-BUTTON_SPACING = 16
+BUTTON_SPACING = 20
+BUTTON_TOP_GAP = 28
 KEEPSAKES_AREA_HEIGHT = 120
 RESTART_LABEL = "Begin a new journey"
 
@@ -177,7 +178,10 @@ class Game:
     def _build_buttons(self, choices: tuple[Choice, ...]) -> None:
         self.choices = [] if self.state.ended else list(choices)
         self.buttons = []
-        top = MARGIN + TEXT_AREA_HEIGHT
+        # A real gap below the text panel, not just the panel's own bottom
+        # edge, so buttons read as a separate group rather than sitting flush
+        # against the panel's border.
+        top = MARGIN + TEXT_AREA_HEIGHT + BUTTON_TOP_GAP
         for choice in self.choices:
             rect = pygame.Rect(MARGIN, top, WINDOW_SIZE[0] - 2 * MARGIN, BUTTON_HEIGHT)
             company_full = (
@@ -212,11 +216,14 @@ class Game:
         panel_height = TEXT_AREA_HEIGHT
         if self.typewriter.done and self.state.ended:
             panel_height += KEEPSAKES_AREA_HEIGHT
+        # Now that buttons start BUTTON_TOP_GAP below the text area instead of
+        # flush against it, the panel can pad symmetrically on all sides
+        # without touching the first button.
         text_panel_rect = pygame.Rect(
             MARGIN - TEXT_PANEL_PADDING,
             MARGIN - TEXT_PANEL_PADDING,
             WINDOW_SIZE[0] - 2 * MARGIN + 2 * TEXT_PANEL_PADDING,
-            panel_height + TEXT_PANEL_PADDING,
+            panel_height + 2 * TEXT_PANEL_PADDING,
         )
         ui.draw_panel(
             self.screen,

@@ -173,10 +173,28 @@ dialog's text, reading as ghosting/visual noise more than a specific contrast fa
 fix draws a translucent full-screen scrim (dims the scene, carries no text) and a fully
 opaque `panel` card on top for the actual page text, so nothing behind can bleed through.
 
+**Scene depth (`scenes.draw_scene`).** The original scene was a flat sky gradient over a flat
+ground rectangle — visibly bare, and the reason the game read as unpolished rather than as a
+contrast bug. Two additions give it real depth using only `pygame.draw` primitives, no art
+assets: a soft sun/moon glow (`_draw_sun`, concentric SRCALPHA circles drawn outer-to-inner so
+each smaller/brighter circle overwrites the previous one's center, faking a radial falloff)
+positioned via `SUN_POSITION_RATIO`/`SUN_RADIUS_RATIO`, and two rolling-hill silhouette layers
+(`_draw_hill`, a sine-wave polygon) configured by `HILL_LAYERS` — a lightened, higher "far"
+layer and a darkened, lower "near" layer, satisfying the design brief's "soft parallax
+backgrounds (2-3 layers)" without needing actual parallax scrolling (the scene is static per
+stage). Both the sun/moon color and the hill shades derive from the palette's `accent` and
+`ground` fields respectively (via `_lighten`/`_darken`), so every season gets a different
+scene automatically rather than needing per-season drawing code.
+
 **Particles (`particles.py`).** One `ParticleSystem` class parameterized by a
-`ParticleKind` (color, size range, fall speed range, horizontal drift range, count) covers
-all three weather effects (`drizzle`, `snow`, `falling_leaves`). Adding a new weather effect
-is adding one `ParticleKind` entry to `WEATHER_KINDS`, not a new class. Particles that fall
+`ParticleKind` (color, size range, fall speed range, horizontal drift range, count, shape)
+covers all three weather effects (`drizzle`, `snow`, `falling_leaves`). Adding a new weather
+effect is adding one `ParticleKind` entry to `WEATHER_KINDS`, not a new class. Drizzle
+originally drew as 1-2px near-invisible dots in a low-contrast color — barely readable as rain
+at all. It now uses a `shape="streak"` (a short line trailing the particle's own velocity,
+reading as a rain streak rather than a static dot) plus a darker, more saturated color and a
+larger size range; `ParticleSystem.draw` branches on `kind.shape` to draw streaks or filled
+circles. Particles that fall
 past the bottom (or drift past the sides) are respawned at the top rather than removed and
 recreated, so the system runs at a constant particle count indefinitely. `game.py` rebuilds
 the `ParticleSystem` only when the stage's weather changes (tracked via `_synced_stage_index`),
@@ -203,7 +221,12 @@ is a continuous state the mouse can enter or leave at any moment — a one-shot 
 fit that shape. Buttons are rebuilt from the current stage's choices every time the stage
 changes (`_build_buttons`), with availability computed from `stages.choice_is_available`
 against the state's active afflictions, so a choice greyed out by illness updates
-automatically the moment illness is cured.
+automatically the moment illness is cured. Buttons originally started immediately at
+`MARGIN + TEXT_AREA_HEIGHT`, flush against the text panel's own bottom edge with zero gap —
+combined with the panel's rounded-rect border sitting right up against the first button's
+square-ish top edge, this read as misaligned rather than intentionally stacked. `BUTTON_TOP_GAP`
+(28px) now separates the button group from the text panel, and the panel's own padding was
+restored to be symmetric (top and bottom) now that there's room for it without overlapping.
 
 **Stage sync (`_sync_stage`).** One method is the single source of truth for "the displayed
 stage changed": it snapshots the previous frame for the crossfade, rebuilds the particle
