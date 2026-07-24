@@ -24,7 +24,6 @@ TRANSITION_DURATION = 0.6
 TRANSITION_START_ALPHA = 255
 TEXT_AREA_HEIGHT = 200
 TEXT_PANEL_PADDING = 20
-TEXT_PANEL_ALPHA = 225
 BUTTON_HEIGHT = 56
 BUTTON_SPACING = 20
 BUTTON_TOP_GAP = 28
@@ -56,6 +55,10 @@ class Game:
         self._synced_ended = False
         self._previous_frame: pygame.Surface | None = None
         self._transition: Tween | None = None
+        # Seconds since startup, fed to scenes.draw_scene so clouds can drift
+        # continuously — tracked here rather than in scenes.py, which stays a
+        # pure function of its arguments with no state of its own.
+        self._elapsed = 0.0
         self._sync_stage()
 
     def run(self) -> None:
@@ -111,6 +114,7 @@ class Game:
         self._sync_stage()
 
     def _update(self, dt: float) -> None:
+        self._elapsed += dt
         self._sync_stage()
         if self.particle_system:
             self.particle_system.update(dt)
@@ -198,7 +202,7 @@ class Game:
         # afflictions. It's used both for the background (via draw_scene) and
         # for every UI surface below (via the desaturated `palette`).
         desaturation = hardship_level(self.state) / MAX_DESATURATION_AFFLICTIONS
-        scenes.draw_scene(self.screen, self.state.season, desaturation)
+        scenes.draw_scene(self.screen, self.state.season, desaturation, self._elapsed)
 
         if self.particle_system:
             self.particle_system.draw(self.screen)
@@ -225,13 +229,11 @@ class Game:
             WINDOW_SIZE[0] - 2 * MARGIN + 2 * TEXT_PANEL_PADDING,
             panel_height + 2 * TEXT_PANEL_PADDING,
         )
-        ui.draw_panel(
-            self.screen,
-            text_panel_rect,
-            palette.panel,
-            ui.dim_color(palette.panel),
-            alpha=TEXT_PANEL_ALPHA,
-        )
+        # Fully opaque: with weather particles now animating behind it (visible
+        # rain streaks, not near-invisible dots), any translucency here would
+        # let their motion bleed through and animate inside the text card —
+        # the same ghosting problem the intro dialog's card already fixed.
+        ui.draw_panel(self.screen, text_panel_rect, palette.panel, ui.dim_color(palette.panel))
         text_rect = pygame.Rect(MARGIN, MARGIN, WINDOW_SIZE[0] - 2 * MARGIN, TEXT_AREA_HEIGHT)
         ui.draw_wrapped_text(
             self.screen, self.typewriter.visible_text(), self.font, palette.text, text_rect

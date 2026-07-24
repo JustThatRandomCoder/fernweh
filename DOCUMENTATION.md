@@ -173,6 +173,14 @@ dialog's text, reading as ghosting/visual noise more than a specific contrast fa
 fix draws a translucent full-screen scrim (dims the scene, carries no text) and a fully
 opaque `panel` card on top for the actual page text, so nothing behind can bleed through.
 
+The situation-text backing panel in `game.py` hit the same bleed-through problem a second
+time, for a different reason: it was drawn at partial alpha (225/255) for a soft "parchment"
+look, which was harmless while the scene behind it was static. Once drizzle became a visible
+animated rain streak (see Particles below) rather than a near-invisible dot, that same
+translucency let the moving rain show through and animate inside the text card. The fix is the
+same lesson applied twice — the panel is now fully opaque; only the drop shadow beneath it (a
+separate, deliberately translucent layer in `draw_panel`) keeps any softness.
+
 **Scene depth (`scenes.draw_scene`).** The original scene was a flat sky gradient over a flat
 ground rectangle — visibly bare, and the reason the game read as unpolished rather than as a
 contrast bug. Two additions give it real depth using only `pygame.draw` primitives, no art
@@ -185,6 +193,22 @@ backgrounds (2-3 layers)" without needing actual parallax scrolling (the scene i
 stage). Both the sun/moon color and the hill shades derive from the palette's `accent` and
 `ground` fields respectively (via `_lighten`/`_darken`), so every season gets a different
 scene automatically rather than needing per-season drawing code.
+
+The first version of this had a real bug, not just a subtlety problem: the flat ground
+`pygame.draw.rect` was drawn *after* the hill polygons, which completely erased them — the
+hills existed in code but were invisible on screen, which is why an initial pass at this
+looked like nothing had changed at all. The fix draws the ground rect first as a base fill,
+then layers the hills on top of it, with each hill's amplitude deliberately larger than its
+baseline offset so the crest rises above the sky/ground line into the sky itself — that's what
+makes it read as a silhouette rather than a bump hidden inside the ground band. A thin
+anti-aliased stroke (`pygame.draw.aalines`, not `lines` — antialiasing keeps it a soft edge
+rather than a technical-looking outline) along just the hill's crest line adds definition in
+low-contrast seasons (winter's pale hill color against a similarly pale sky nearly disappeared
+without it). Clouds (`_draw_clouds`/`_draw_cloud`) are the one continuously-animated part of
+the background itself, distinct from the particle system's weather — each cloud's x position
+is computed directly from an `elapsed` seconds-since-startup value passed into `draw_scene`
+(tracked in `Game._elapsed`, accumulated in `_update`), rather than the cloud holding any
+mutable state of its own, so `draw_scene` stays a pure function of its arguments.
 
 **Particles (`particles.py`).** One `ParticleSystem` class parameterized by a
 `ParticleKind` (color, size range, fall speed range, horizontal drift range, count, shape)

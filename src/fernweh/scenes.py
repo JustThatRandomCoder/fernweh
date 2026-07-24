@@ -79,18 +79,31 @@ SEASON_PALETTES: dict[str, Palette] = {
 }
 
 GROUND_HEIGHT_RATIO = 0.28
-# Rolling-hill silhouette layers drawn between the sky and the ground band, as
-# fractions of the sky's height — gives the scene depth (a near/far layer)
-# without any art assets, per the design brief's "soft parallax backgrounds
-# (2-3 layers)". Each tuple is (top_offset_ratio, amplitude_ratio, wave_count,
-# phase, lighten_or_darken_amount) — the far layer is lightened (hazier,
-# distant), the near layer darkened (closer, more saturated).
+# Rolling-hill silhouette layers, each a (baseline_ratio, amplitude_ratio,
+# wave_count, phase, lighten_or_darken_amount) tuple. `baseline_ratio` and
+# `amplitude_ratio` are both fractions of ground_height, but measured from
+# sky_height — since amplitude is deliberately larger than baseline here, the
+# crest rises *above* the sky/ground line, into the sky itself, which is what
+# makes the hills read as an actual silhouette rather than a bump hidden
+# inside the flat ground band. The far layer is lightened (hazier, distant,
+# taller) and drawn first; the near layer is darkened (closer, in front,
+# lower) and drawn on top of it — the "2-3 layer parallax" the design brief
+# calls for.
 HILL_LAYERS = (
-    (0.60, 0.05, 1.4, 0.6, 0.22),
-    (0.74, 0.045, 1.9, 2.4, -0.10),
+    (0.25, 0.85, 1.3, 0.5, 0.32),
+    (0.48, 0.55, 1.8, 2.6, -0.16),
 )
-SUN_POSITION_RATIO = (0.8, 0.16)
-SUN_RADIUS_RATIO = 0.05
+SUN_POSITION_RATIO = (0.78, 0.16)
+SUN_RADIUS_RATIO = 0.075
+# Each cloud is (y_ratio within the sky, drift speed in px/second, size scale,
+# starting position as a fraction of one screen-width-of-travel) — drawn from
+# `elapsed` seconds passed to draw_scene, so clouds drift continuously without
+# draw_scene needing to hold any state of its own between frames.
+CLOUDS = (
+    (0.16, 7.0, 1.0, 0.05),
+    (0.32, 4.5, 0.7, 0.45),
+    (0.08, 9.5, 0.55, 0.78),
+)
 
 
 def palette_for_season(season: str) -> Palette:
@@ -124,11 +137,15 @@ def desaturate_palette(palette: Palette, amount: float) -> Palette:
     )
 
 
-def draw_scene(surface: pygame.Surface, season: str, desaturation: float = 0.0) -> None:
-    """Draw a full seasonal scene: sky, a soft sun/moon glow, rolling hills, and ground.
+def draw_scene(
+    surface: pygame.Surface, season: str, desaturation: float = 0.0, elapsed: float = 0.0
+) -> None:
+    """Draw a full seasonal scene: sky, sun/moon, drifting clouds, hills, and ground.
 
     `desaturation` in [0, 1] pulls all colors toward grey, expressing hardship
-    level without any per-affliction special-casing.
+    level without any per-affliction special-casing. `elapsed` (seconds since
+    the game started) drives the only continuous motion in the background
+    itself — cloud drift — independent of the particle system's weather.
     """
     palette = desaturate_palette(palette_for_season(season), desaturation)
     width, height = surface.get_size()
@@ -144,11 +161,18 @@ def draw_scene(surface: pygame.Surface, season: str, desaturation: float = 0.0) 
         pygame.draw.line(surface, color, (0, y), (width, y))
 
     _draw_sun(surface, palette.accent, width, sky_height)
+    _draw_clouds(surface, _lighten(palette.sky_bottom, 0.45), width, sky_height, elapsed)
 
-    # Hill layers are drawn back-to-front (far first) so the near layer's
-    # silhouette overlaps the far one, then the flat ground band covers both
-    # layers' bottoms — this is the "2-3 layer parallax" the scene needed.
-    for top_ratio, amplitude_ratio, wave_count, phase, shade_amount in HILL_LAYERS:
+    # The flat ground band is the base fill, drawn *before* the hills — hills
+    # are the foreground silhouette layered on top, so their crests can rise
+    # above the sky/ground line into the sky itself instead of being erased
+    # by the ground fill drawn afterward.
+    pygame.draw.rect(surface, palette.ground, (0, sky_height, width, ground_height))
+
+    # Hill layers are drawn back-to-front (far, taller, hazier first; near,
+    # lower, more saturated on top) so the near layer's silhouette overlaps
+    # the far one — the "2-3 layer parallax" the design brief calls for.
+    for baseline_ratio, amplitude_ratio, wave_count, phase, shade_amount in HILL_LAYERS:
         hill_color = (
             _lighten(palette.ground, shade_amount)
             if shade_amount >= 0
@@ -157,7 +181,7 @@ def draw_scene(surface: pygame.Surface, season: str, desaturation: float = 0.0) 
         _draw_hill(
             surface,
             hill_color,
-            top=sky_height + ground_height * top_ratio,
+            baseline=sky_height + ground_height * baseline_ratio,
             amplitude=ground_height * amplitude_ratio,
             wave_count=wave_count,
             phase=phase,
@@ -165,7 +189,39 @@ def draw_scene(surface: pygame.Surface, season: str, desaturation: float = 0.0) 
             height=height,
         )
 
-    pygame.draw.rect(surface, palette.ground, (0, sky_height, width, ground_height))
+
+def _draw_clouds(
+    surface: pygame.Surface, color: Color, width: int, sky_height: int, elapsed: float
+) -> None:
+    """Draw a handful of soft clouds, each drifting rightward at its own speed."""
+    for y_ratio, speed, scale, start_ratio in CLOUDS:
+        cloud_width = round(160 * scale)
+        # Wrap around continuously: as a cloud's x passes the right edge, the
+        # modulo brings it back in from just off the left edge.
+        span = width + cloud_width
+        x = (start_ratio * span + elapsed * speed) % span - cloud_width
+        y = round(sky_height * y_ratio)
+        _draw_cloud(surface, color, x, y, scale)
+
+
+def _draw_cloud(surface: pygame.Surface, color: Color, x: float, y: float, scale: float) -> None:
+    """Draw one cloud as a cluster of overlapping translucent circles."""
+    # Each (dx, dy, radius) puff is a fraction of `scale`, offset from the
+    # cloud's center — several overlapping soft circles read as one fluffy
+    # cloud shape rather than a single flat blob.
+    puffs = ((-0.9, 0.18, 0.55), (-0.3, -0.22, 0.72), (0.35, -0.05, 0.65), (0.85, 0.2, 0.5))
+    unit = 55 * scale
+    cloud_surface_size = round(unit * 5)
+    cloud = pygame.Surface((cloud_surface_size, cloud_surface_size), pygame.SRCALPHA)
+    center = cloud_surface_size / 2
+    for dx, dy, radius_ratio in puffs:
+        pygame.draw.circle(
+            cloud,
+            (*color, 120),
+            (round(center + dx * unit), round(center + dy * unit)),
+            round(unit * radius_ratio),
+        )
+    surface.blit(cloud, (x - center, y - center))
 
 
 def _draw_sun(surface: pygame.Surface, color: Color, width: int, sky_height: int) -> None:
@@ -188,26 +244,35 @@ def _draw_sun(surface: pygame.Surface, color: Color, width: int, sky_height: int
 def _draw_hill(
     surface: pygame.Surface,
     color: Color,
-    top: float,
+    baseline: float,
     amplitude: float,
     wave_count: float,
     phase: float,
     width: int,
     height: int,
 ) -> None:
-    """Draw one rolling-hill silhouette as a smooth polygon, from `top` down to the bottom."""
+    """Draw one rolling-hill silhouette as a smooth polygon, from `baseline` down to the bottom."""
     steps = 40
-    points = [(0.0, float(height))]
+    crest_points = []
     for i in range(steps + 1):
         x = width * i / steps
-        # A sine wave gives the "rolling" shape: y ranges from `top` (a
-        # valley, sin at its minimum) up to `top - amplitude` (a crest,
-        # smaller y draws higher on screen) — the hill silhouette always sits
-        # at or above the `top` baseline, never below it.
-        y = top - amplitude * (0.5 + 0.5 * math.sin(phase + wave_count * math.pi * i / steps))
-        points.append((x, y))
-    points.append((float(width), float(height)))
-    pygame.draw.polygon(surface, color, points)
+        # A sine wave gives the "rolling" shape: y ranges from `baseline` (a
+        # valley, sin at its minimum) up to `baseline - amplitude` (a crest,
+        # smaller y draws higher on screen — with a large enough amplitude
+        # this crosses above the sky/ground line, which is what makes the
+        # hill read as a silhouette against the sky rather than a bump
+        # hidden inside the flat ground band).
+        y = baseline - amplitude * (0.5 + 0.5 * math.sin(phase + wave_count * math.pi * i / steps))
+        crest_points.append((x, y))
+    pygame.draw.polygon(
+        surface, color, [(0.0, float(height)), *crest_points, (float(width), float(height))]
+    )
+    # A thin anti-aliased stroke along just the crest line (not the bottom
+    # edges) adds definition in low-contrast seasons like winter, where the
+    # hill color and the sky/ground behind it are close enough that the fill
+    # alone nearly disappears. `aalines` (vs. `lines`) keeps it a soft edge
+    # rather than a hard, technical-looking outline.
+    pygame.draw.aalines(surface, _darken(color, 0.14), False, crest_points)
 
 
 def _lerp_color(a: Color, b: Color, t: float) -> Color:
