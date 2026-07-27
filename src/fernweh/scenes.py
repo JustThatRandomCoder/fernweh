@@ -279,15 +279,15 @@ def draw_scene(
     surface.blit(_vignette_surface(width, height), (0, 0))
 
 
-class TravelerAppearance:
-    """A traveler's look and gait, rolled once so every human looks/moves a little different.
+class PersonAppearance:
+    """One human's look and gait — shared by the player traveler, portraits, and companions.
 
     Colors are chosen from small curated palettes rather than arbitrary random
     RGB — that keeps every combination readable as "a person" instead of
     occasionally producing an ugly or unreadable color clash. `bob_scale` and
-    `stride_scale` vary the walk itself (how bouncy, how long a stride) so two
-    playthroughs don't just look like different outfits on an identical
-    animation.
+    `stride_scale` vary the walk itself (how bouncy, how long a stride) so
+    different people (or the same traveler across different playthroughs)
+    don't just look like different outfits on an identical animation.
     """
 
     def __init__(
@@ -309,7 +309,7 @@ class TravelerAppearance:
 
 # Curated, not exhaustive — a handful of plausible human skin/hair tones and a
 # handful of dyed-cloth colors that read as "traveler's clothes" in a muted
-# painterly game, not neon. `random_traveler_appearance` draws one of each.
+# painterly game, not neon. `random_person_appearance` draws one of each.
 SKIN_TONES: tuple[Color, ...] = ((235, 200, 173), (210, 168, 125), (160, 116, 82), (96, 68, 52))
 HAIR_COLORS: tuple[Color, ...] = ((40, 32, 26), (92, 60, 34), (176, 142, 92), (58, 58, 62))
 TUNIC_COLORS: tuple[Color, ...] = (
@@ -322,15 +322,73 @@ TUNIC_COLORS: tuple[Color, ...] = (
 TROUSER_COLORS: tuple[Color, ...] = ((66, 58, 50), (52, 58, 68), (86, 72, 54))
 
 
-def random_traveler_appearance(rng: random.Random) -> TravelerAppearance:
+def random_person_appearance(rng: random.Random) -> PersonAppearance:
     """Roll a new traveler look and gait from the curated palettes above."""
-    return TravelerAppearance(
+    return PersonAppearance(
         skin=rng.choice(SKIN_TONES),
         hair=rng.choice(HAIR_COLORS),
         tunic=rng.choice(TUNIC_COLORS),
         trousers=rng.choice(TROUSER_COLORS),
         bob_scale=rng.uniform(0.75, 1.3),
         stride_scale=rng.uniform(0.8, 1.25),
+    )
+
+
+def appearance_for_seed(seed: str) -> PersonAppearance:
+    """Deterministic appearance for a seed string (e.g. a companion's id).
+
+    Used as a fallback so a companion always looks the same throughout a
+    playthrough even if content didn't explicitly describe their look via
+    `person_appearance_from_names` — the same seed always rolls the same
+    `random.Random` sequence.
+    """
+    return random_person_appearance(random.Random(seed))
+
+
+# Content (`stages.py`) describes a scene character with plain strings
+# (role/hair/tunic/skin names, kept in a small fixed vocabulary the pure
+# content layer can validate on its own) rather than raw RGB — stages.py
+# can't import this pygame-dependent module to look colors up itself, so the
+# name *sets* have to be duplicated in both layers by convention (the same
+# pattern already used for season names between `state.py` and
+# `SEASON_PALETTES`). These dicts are the rendering side of that convention.
+NAMED_SKIN_TONES: dict[str, Color] = {
+    "light": SKIN_TONES[0],
+    "tan": SKIN_TONES[1],
+    "deep": SKIN_TONES[2],
+    "dark": SKIN_TONES[3],
+}
+NAMED_HAIR_COLORS: dict[str, Color] = {
+    "black": HAIR_COLORS[0],
+    "auburn": HAIR_COLORS[1],
+    "sandy": HAIR_COLORS[2],
+    "grey": HAIR_COLORS[3],
+}
+NAMED_TUNIC_COLORS: dict[str, Color] = {
+    "red": TUNIC_COLORS[0],
+    "blue": TUNIC_COLORS[1],
+    "green": TUNIC_COLORS[2],
+    "gold": TUNIC_COLORS[3],
+    "purple": TUNIC_COLORS[4],
+}
+
+
+def person_appearance_from_names(skin: str, hair: str, tunic: str) -> PersonAppearance:
+    """Build an explicit, author-controlled appearance from content's named colors.
+
+    Unlike `random_person_appearance`, this is deterministic and used for
+    named NPCs the content describes (a portrait's look shouldn't change
+    between runs) — trousers/gait stay at neutral defaults since a portrait
+    never shows legs and a recruited companion's gait doesn't need to be
+    distinctive the way the player traveler's is.
+    """
+    return PersonAppearance(
+        skin=NAMED_SKIN_TONES[skin],
+        hair=NAMED_HAIR_COLORS[hair],
+        tunic=NAMED_TUNIC_COLORS[tunic],
+        trousers=TROUSER_COLORS[0],
+        bob_scale=1.0,
+        stride_scale=1.0,
     )
 
 
@@ -345,7 +403,7 @@ def draw_traveler(
     palette: Palette,
     x_ratio: float,
     elapsed: float,
-    appearance: TravelerAppearance,
+    appearance: PersonAppearance,
     gait_offset: float = 0.0,
     gait_speed: float = 1.0,
 ) -> None:
@@ -419,6 +477,106 @@ def draw_traveler(
     _pixel_rect(surface, appearance.hair, x - 2 * unit, head_bottom - head_h, 4 * unit, unit * 1.4)
     _pixel_rect(surface, appearance.hair, x - 2.2 * unit, head_bottom - head_h, unit * 0.6, head_h)
     _pixel_rect(surface, appearance.hair, x + 1.6 * unit, head_bottom - head_h, unit * 0.6, head_h)
+
+
+POSE_HEAD_LEAN: dict[str, float] = {
+    "standing": 0.0,
+    "sitting": 0.35,
+    "crouching": 0.55,
+}
+
+
+def draw_portrait(
+    surface: pygame.Surface,
+    rect: pygame.Rect,
+    palette: Palette,
+    appearance: PersonAppearance,
+    pose: str,
+    elapsed: float,
+    prop: str | None = None,
+) -> None:
+    """Draw a close-up bust portrait of the NPC a stage's situation describes.
+
+    Built from the same blocky-rectangle technique as `draw_traveler`, just
+    at a larger scale and cropped at the shoulders, visual-novel style,
+    instead of a full walking body — a stage's question has room for a
+    close-up but not a full figure once the text panel and choice buttons
+    are laid out. A slow idle bob and an occasional blink keep it from
+    reading as a still image even though nothing about the pose is meant to
+    move far; `pose` leans the head slightly for "sitting"/"crouching" so
+    the same bust reads as resting rather than standing at attention.
+    """
+    unit = rect.width / 24
+    cx = rect.centerx
+    lean = POSE_HEAD_LEAN.get(pose, 0.0) * unit
+
+    # A soft round backdrop behind the bust reads as a close-up vignette,
+    # distinguishing the portrait area from the flat panel behind it.
+    backdrop_radius = round(rect.width * 0.56)
+    backdrop = pygame.Surface((backdrop_radius * 2, backdrop_radius * 2), pygame.SRCALPHA)
+    pygame.draw.circle(
+        backdrop,
+        (*_darken(palette.panel, 0.08), 255),
+        (backdrop_radius, backdrop_radius),
+        backdrop_radius,
+    )
+    surface.blit(backdrop, (cx - backdrop_radius, rect.top - backdrop_radius * 0.15))
+
+    # Idle breathing: a slow, small vertical drift, independent of any walk
+    # cycle — this portrait never walks, it just isn't perfectly frozen.
+    breathe = math.sin(elapsed * 1.3) * unit * 0.18
+
+    shoulder_h = 6 * unit
+    shoulder_y = rect.bottom - shoulder_h + breathe
+    _pixel_rect(surface, appearance.tunic, cx - 8 * unit, shoulder_y, 16 * unit, shoulder_h)
+
+    neck_y = shoulder_y - 2 * unit
+    _pixel_rect(surface, appearance.skin, cx - 2 * unit, neck_y, 4 * unit, 2.2 * unit)
+
+    head_h = 11 * unit
+    head_y = neck_y - head_h
+    head_x = cx - 5 * unit + lean
+    _pixel_rect(surface, appearance.skin, head_x, head_y, 10 * unit, head_h)
+
+    # Hair: a cap over the crown plus two side locks framing the face.
+    _pixel_rect(surface, appearance.hair, head_x, head_y, 10 * unit, 3.2 * unit)
+    _pixel_rect(surface, appearance.hair, head_x - 0.8 * unit, head_y, unit, head_h * 0.7)
+    _pixel_rect(surface, appearance.hair, head_x + 9.8 * unit, head_y, unit, head_h * 0.7)
+
+    # Eyes blink shut for a brief window every few seconds rather than
+    # staying open forever — the one detail that most reads as "alive"
+    # in a close-up, blocky or not.
+    blink = (elapsed * 1.0) % 4.0 > 3.75
+    eye_h = 0.4 * unit if not blink else 0.08 * unit
+    eye_y = head_y + 5.6 * unit
+    eye_color = _darken(appearance.skin, 0.75)
+    _pixel_rect(surface, eye_color, head_x + 1.8 * unit, eye_y, 1.6 * unit, eye_h)
+    _pixel_rect(surface, eye_color, head_x + 6.6 * unit, eye_y, 1.6 * unit, eye_h)
+
+    mouth_y = head_y + 8.3 * unit
+    _pixel_rect(
+        surface, _darken(appearance.skin, 0.55), head_x + 3.5 * unit, mouth_y, 3 * unit, 0.5 * unit
+    )
+
+    if prop == "well":
+        _draw_well_prop(surface, palette, rect)
+
+
+def _draw_well_prop(surface: pygame.Surface, palette: Palette, rect: pygame.Rect) -> None:
+    """Draw a small stone well beside the portrait, hinting at the described setting."""
+    unit = rect.width / 24
+    base_x = rect.left - unit
+    base_y = rect.bottom - 8 * unit
+    stone = _lighten(palette.ground, 0.35)
+    _pixel_rect(surface, stone, base_x, base_y, 6 * unit, 6 * unit)
+    _pixel_rect(surface, _darken(stone, 0.3), base_x + unit, base_y + unit, 4 * unit, 4 * unit)
+    roof_color = _darken(palette.ground, 0.45)
+    roof_points = [
+        (base_x - unit, base_y),
+        (base_x + 3 * unit, base_y - 3 * unit),
+        (base_x + 7 * unit, base_y),
+    ]
+    pygame.draw.polygon(surface, roof_color, roof_points)
 
 
 def _pixel_rect(

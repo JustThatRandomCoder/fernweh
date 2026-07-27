@@ -19,6 +19,20 @@ from fernweh.state import SEASONS, STAGES_PER_SEASON, Companion, GameState
 VALID_EFFECT_KEYS = frozenset({"energy", "supplies"})
 VALID_AFFLICTIONS = frozenset({"exhausted", "ill", "frostbitten"})
 
+# A scene character's look/pose vocabulary. Kept as plain strings validated
+# against these fixed sets rather than raw colors, since this module can't
+# import `scenes.py` (the pure content/logic layer never imports the
+# pygame-dependent rendering layer) — `scenes.py` separately defines a
+# NAMED_*_COLORS dict using these exact same keys, the same "shared name,
+# duplicated by convention" relationship SEASONS already has with
+# SEASON_PALETTES.
+VALID_ROLES = frozenset({"woman", "man"})
+VALID_POSES = frozenset({"standing", "sitting", "crouching"})
+VALID_SKIN_TONES = frozenset({"light", "tan", "deep", "dark"})
+VALID_HAIR_COLORS = frozenset({"black", "auburn", "sandy", "grey"})
+VALID_TUNIC_COLORS = frozenset({"red", "blue", "green", "gold", "purple"})
+VALID_PROPS = frozenset({"well"})
+
 DEFAULT_CONTENT_PATH = Path(__file__).resolve().parent.parent.parent / "content" / "stages.json"
 
 
@@ -43,6 +57,22 @@ class Choice:
 
 
 @dataclass(frozen=True)
+class SceneCharacter:
+    """The NPC a stage's situation text describes, if any — rendered as a close-up portrait.
+
+    Optional: most stages describe an empty landscape, not a person, so most
+    stages have no `character` block at all in content and this stays absent.
+    """
+
+    role: str
+    pose: str
+    skin: str
+    hair: str
+    tunic: str
+    prop: str | None
+
+
+@dataclass(frozen=True)
 class Stage:
     """A single stage: a scene, a situation, and its choices."""
 
@@ -51,6 +81,7 @@ class Stage:
     scene: dict[str, str]
     situation: str
     choices: tuple[Choice, ...]
+    character: SceneCharacter | None
 
 
 def load_stages(path: Path | None = None) -> list[Stage]:
@@ -143,6 +174,34 @@ def _parse_stage(raw: dict[str, Any]) -> Stage:
         scene=raw["scene"],
         situation=raw["situation"],
         choices=choices,
+        character=_parse_character(raw["scene"].get("character"), raw.get("id")),
+    )
+
+
+def _parse_character(raw: dict[str, Any] | None, stage_id: Any) -> SceneCharacter | None:
+    if raw is None:
+        return None
+    for field, valid in (
+        ("role", VALID_ROLES),
+        ("pose", VALID_POSES),
+        ("skin", VALID_SKIN_TONES),
+        ("hair", VALID_HAIR_COLORS),
+        ("tunic", VALID_TUNIC_COLORS),
+    ):
+        if raw.get(field) not in valid:
+            raise ContentError(
+                f"stage {stage_id} character has invalid '{field}' value {raw.get(field)!r}"
+            )
+    prop = raw.get("prop")
+    if prop is not None and prop not in VALID_PROPS:
+        raise ContentError(f"stage {stage_id} character references unknown prop '{prop}'")
+    return SceneCharacter(
+        role=raw["role"],
+        pose=raw["pose"],
+        skin=raw["skin"],
+        hair=raw["hair"],
+        tunic=raw["tunic"],
+        prop=prop,
     )
 
 

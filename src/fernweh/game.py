@@ -69,7 +69,7 @@ class Game:
         # Rolled once per journey (and re-rolled on restart in `_restart`) so
         # the traveler has a consistent look across every passage within one
         # playthrough, but a different one from the last playthrough.
-        self.traveler_appearance = scenes.random_traveler_appearance(self.rng)
+        self.traveler_appearance = scenes.random_person_appearance(self.rng)
         # Seconds since startup, fed to scenes.draw_scene so clouds can drift
         # continuously — tracked here rather than in scenes.py, which stays a
         # pure function of its arguments with no state of its own.
@@ -141,7 +141,7 @@ class Game:
 
     def _restart(self) -> None:
         self.state = GameState()
-        self.traveler_appearance = scenes.random_traveler_appearance(self.rng)
+        self.traveler_appearance = scenes.random_person_appearance(self.rng)
         self._synced_stage_index = None
         self._synced_ended = False
         self._sync_stage()
