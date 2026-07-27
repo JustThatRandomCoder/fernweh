@@ -35,7 +35,15 @@
       "season": "spring",
       "scene": {
         "description": "A fork in the road beside a stone well, blossom just starting on the trees.",
-        "weather": "clear"
+        "weather": "clear",
+        "character": {
+          "role": "woman",
+          "pose": "sitting",
+          "skin": "tan",
+          "hair": "auburn",
+          "tunic": "green",
+          "prop": "well"
+        }
       },
       "situation": "A woman is resting against the well, pack half-open beside her. She looks up as you near and says nothing, waiting to see if you'll stop.",
       "choices": [
@@ -132,7 +140,14 @@
       "season": "spring",
       "scene": {
         "description": "The last blossoms of the season scattering across a hillside track.",
-        "weather": "breezy"
+        "weather": "breezy",
+        "character": {
+          "role": "woman",
+          "pose": "crouching",
+          "skin": "light",
+          "hair": "sandy",
+          "tunic": "gold"
+        }
       },
       "situation": "A young herbalist is crouched in the grass, gathering something into a cloth pouch. She glances up without much surprise, as if she'd heard you coming a while ago.",
       "choices": [
@@ -197,7 +212,14 @@
       "season": "summer",
       "scene": {
         "description": "A dusty crossroads market, awnings flapping in the heat, voices calling out prices.",
-        "weather": "clear"
+        "weather": "clear",
+        "character": {
+          "role": "man",
+          "pose": "standing",
+          "skin": "deep",
+          "hair": "black",
+          "tunic": "purple"
+        }
       },
       "situation": "A trader with a limp and a quick laugh falls into step beside you at the edge of the market, in no apparent hurry to sell you anything.",
       "choices": [
@@ -356,7 +378,14 @@
       "season": "autumn",
       "scene": {
         "description": "A woodcutter's clearing, smoke rising thin from a low chimney.",
-        "weather": "overcast"
+        "weather": "overcast",
+        "character": {
+          "role": "man",
+          "pose": "standing",
+          "skin": "tan",
+          "hair": "grey",
+          "tunic": "blue"
+        }
       },
       "situation": "An old man is stacking wood with the unhurried care of someone who has nowhere left to be. He nods at you like he already knows why you've stopped.",
       "choices": [
@@ -573,7 +602,14 @@
       "season": "winter",
       "scene": {
         "description": "A quiet frozen lake, the ice thick enough to walk, footprints of someone else already crossing it.",
-        "weather": "snow"
+        "weather": "snow",
+        "character": {
+          "role": "woman",
+          "pose": "sitting",
+          "skin": "light",
+          "hair": "black",
+          "tunic": "red"
+        }
       },
       "situation": "A figure is crouched at the far edge of the ice, mending a torn pack with fingers that look nearly as cold as yours. She doesn't look up until you're close.",
       "choices": [

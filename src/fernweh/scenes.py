@@ -8,6 +8,7 @@ so adding a new season/palette never touches the game loop.
 from __future__ import annotations
 
 import math
+import random
 
 import pygame
 
@@ -98,9 +99,14 @@ GROUND_HEIGHT_RATIO = 0.28
 # lower) and drawn on top of it — the "2-3 layer parallax" the design brief
 # calls for.
 HILL_LAYERS = (
+    (0.08, 0.95, 0.9, 4.1, 0.5),
     (0.25, 0.85, 1.3, 0.5, 0.32),
     (0.48, 0.55, 1.8, 2.6, -0.16),
 )
+# A soft radial darkening toward the screen edges, drawn last over everything
+# else — pulls the eye toward the center the way a photographed vignette
+# does, and adds depth to what would otherwise be a flat, evenly-lit scene.
+VIGNETTE_STRENGTH = 0.35
 SUN_POSITION_RATIO = (0.78, 0.16)
 SUN_RADIUS_RATIO = 0.075
 # Each cloud is (y_ratio within the sky, drift speed in px/second, size scale,
@@ -126,6 +132,50 @@ TREES = (
     (0.925, 0.85, 2.7),
     (0.975, 0.62, 0.8),
 )
+# The path is the journey itself made visible: a dirt track winding through
+# the foreground, low in the ground band (near the viewer) so it reads as
+# the road underfoot rather than a distant trail. `path_y_ratio` is a pure
+# function of x so `game.py` can reuse the exact same curve to walk the
+# traveler silhouette along it during a passage, instead of the two drifting
+# out of sync if the curve were duplicated.
+PATH_BASELINE_RATIO = 0.82
+PATH_AMPLITUDE_RATIO = 0.16
+PATH_WAVE_COUNT = 1.6
+PATH_PHASE = 1.1
+PATH_WIDTH_RATIO = 0.05
+# Birds only fly in the warmer half of the year — each is a (y_ratio, speed,
+# scale, start_ratio) tuple, same shape and wrap-around drift technique as
+# CLOUDS above, just rendered as a flapping "M" silhouette instead of a puff
+# cluster.
+BIRD_SEASONS = ("spring", "summer")
+BIRDS = (
+    (0.22, 34.0, 1.0, 0.15),
+    (0.27, 30.0, 0.8, 0.62),
+)
+# Fireflies only appear on summer evenings, drifting in small loops near the
+# foreground rather than falling like weather particles — each is
+# (x_ratio, y_ratio, phase, flicker_speed), fixed positions that only move
+# locally, so they read as insects wandering a patch of ground, not rain.
+FIREFLY_SEASON = "summer"
+FIREFLIES = (
+    (0.15, 0.72, 0.0, 2.1),
+    (0.30, 0.8, 1.4, 1.7),
+    (0.68, 0.76, 2.6, 2.4),
+    (0.82, 0.68, 4.1, 1.9),
+    (0.5, 0.85, 3.2, 2.6),
+)
+
+
+def path_y_ratio(x_ratio: float) -> float:
+    """Return the path's vertical position within the ground band at a given x fraction.
+
+    The result is a fraction of `ground_height` measured from the sky/ground
+    line — the same convention `_draw_hill` uses — so callers just multiply
+    by `ground_height` and add `sky_height` to get a screen y.
+    """
+    return PATH_BASELINE_RATIO + PATH_AMPLITUDE_RATIO * math.sin(
+        PATH_PHASE + PATH_WAVE_COUNT * math.pi * x_ratio
+    )
 
 
 def palette_for_season(season: str) -> Palette:
@@ -185,6 +235,8 @@ def draw_scene(
 
     _draw_sun(surface, palette.accent, width, sky_height)
     _draw_clouds(surface, _lighten(palette.sky_bottom, 0.45), width, sky_height, elapsed)
+    if season in BIRD_SEASONS:
+        _draw_birds(surface, _darken(palette.sky_bottom, 0.55), width, sky_height, elapsed)
 
     # The flat ground band is the base fill, drawn *before* the hills — hills
     # are the foreground silhouette layered on top, so their crests can rise
@@ -212,9 +264,326 @@ def draw_scene(
             height=height,
         )
 
+    # The path is drawn on top of the ground/hills but underneath the trees,
+    # so trunks planted near its edges still occlude it the way real
+    # roadside trees would.
+    _draw_path(surface, palette, width, sky_height, ground_height)
+
     # Trees stand on top of everything else in the scene — the nearest layer,
     # rooted in the ground band.
     _draw_trees(surface, palette, width, height, ground_height, elapsed)
+
+    if season == FIREFLY_SEASON:
+        _draw_fireflies(surface, width, height, elapsed)
+
+    surface.blit(_vignette_surface(width, height), (0, 0))
+
+
+class PersonAppearance:
+    """One human's look and gait — shared by the player traveler, portraits, and companions.
+
+    Colors are chosen from small curated palettes rather than arbitrary random
+    RGB — that keeps every combination readable as "a person" instead of
+    occasionally producing an ugly or unreadable color clash. `bob_scale` and
+    `stride_scale` vary the walk itself (how bouncy, how long a stride) so
+    different people (or the same traveler across different playthroughs)
+    don't just look like different outfits on an identical animation.
+    """
+
+    def __init__(
+        self,
+        skin: Color,
+        hair: Color,
+        tunic: Color,
+        trousers: Color,
+        bob_scale: float,
+        stride_scale: float,
+    ) -> None:
+        self.skin = skin
+        self.hair = hair
+        self.tunic = tunic
+        self.trousers = trousers
+        self.bob_scale = bob_scale
+        self.stride_scale = stride_scale
+
+
+# Curated, not exhaustive — a handful of plausible human skin/hair tones and a
+# handful of dyed-cloth colors that read as "traveler's clothes" in a muted
+# painterly game, not neon. `random_person_appearance` draws one of each.
+SKIN_TONES: tuple[Color, ...] = ((235, 200, 173), (210, 168, 125), (160, 116, 82), (96, 68, 52))
+HAIR_COLORS: tuple[Color, ...] = ((40, 32, 26), (92, 60, 34), (176, 142, 92), (58, 58, 62))
+TUNIC_COLORS: tuple[Color, ...] = (
+    (150, 66, 62),
+    (74, 104, 138),
+    (94, 128, 82),
+    (162, 122, 60),
+    (110, 82, 132),
+)
+TROUSER_COLORS: tuple[Color, ...] = ((66, 58, 50), (52, 58, 68), (86, 72, 54))
+
+
+def random_person_appearance(rng: random.Random) -> PersonAppearance:
+    """Roll a new traveler look and gait from the curated palettes above."""
+    return PersonAppearance(
+        skin=rng.choice(SKIN_TONES),
+        hair=rng.choice(HAIR_COLORS),
+        tunic=rng.choice(TUNIC_COLORS),
+        trousers=rng.choice(TROUSER_COLORS),
+        bob_scale=rng.uniform(0.75, 1.3),
+        stride_scale=rng.uniform(0.8, 1.25),
+    )
+
+
+def appearance_for_seed(seed: str) -> PersonAppearance:
+    """Deterministic appearance for a seed string (e.g. a companion's id).
+
+    Used as a fallback so a companion always looks the same throughout a
+    playthrough even if content didn't explicitly describe their look via
+    `person_appearance_from_names` — the same seed always rolls the same
+    `random.Random` sequence.
+    """
+    return random_person_appearance(random.Random(seed))
+
+
+# Content (`stages.py`) describes a scene character with plain strings
+# (role/hair/tunic/skin names, kept in a small fixed vocabulary the pure
+# content layer can validate on its own) rather than raw RGB — stages.py
+# can't import this pygame-dependent module to look colors up itself, so the
+# name *sets* have to be duplicated in both layers by convention (the same
+# pattern already used for season names between `state.py` and
+# `SEASON_PALETTES`). These dicts are the rendering side of that convention.
+NAMED_SKIN_TONES: dict[str, Color] = {
+    "light": SKIN_TONES[0],
+    "tan": SKIN_TONES[1],
+    "deep": SKIN_TONES[2],
+    "dark": SKIN_TONES[3],
+}
+NAMED_HAIR_COLORS: dict[str, Color] = {
+    "black": HAIR_COLORS[0],
+    "auburn": HAIR_COLORS[1],
+    "sandy": HAIR_COLORS[2],
+    "grey": HAIR_COLORS[3],
+}
+NAMED_TUNIC_COLORS: dict[str, Color] = {
+    "red": TUNIC_COLORS[0],
+    "blue": TUNIC_COLORS[1],
+    "green": TUNIC_COLORS[2],
+    "gold": TUNIC_COLORS[3],
+    "purple": TUNIC_COLORS[4],
+}
+
+
+def person_appearance_from_names(skin: str, hair: str, tunic: str) -> PersonAppearance:
+    """Build an explicit, author-controlled appearance from content's named colors.
+
+    Unlike `random_person_appearance`, this is deterministic and used for
+    named NPCs the content describes (a portrait's look shouldn't change
+    between runs) — trousers/gait stay at neutral defaults since a portrait
+    never shows legs and a recruited companion's gait doesn't need to be
+    distinctive the way the player traveler's is.
+    """
+    return PersonAppearance(
+        skin=NAMED_SKIN_TONES[skin],
+        hair=NAMED_HAIR_COLORS[hair],
+        tunic=NAMED_TUNIC_COLORS[tunic],
+        trousers=TROUSER_COLORS[0],
+        bob_scale=1.0,
+        stride_scale=1.0,
+    )
+
+
+# The traveler is built from chunky rectangles at this unit size rather than
+# thin lines — a small "pixel art" grid of blocks reads as a human figure the
+# way a retro sprite does, instead of a wireframe stick figure.
+TRAVELER_PIXEL = 3
+
+
+def draw_traveler(
+    surface: pygame.Surface,
+    palette: Palette,
+    x_ratio: float,
+    elapsed: float,
+    appearance: PersonAppearance,
+    gait_offset: float = 0.0,
+    gait_speed: float = 1.0,
+) -> None:
+    """Draw the traveler as a blocky pixel-art figure, feet planted on the path.
+
+    Called separately from `draw_scene` (rather than folded into it) because
+    only a passage between stages shows the traveler in motion — every other
+    screen (a stage's question, the ending) has no need for it. `x_ratio` is
+    the traveler's horizontal position as a fraction of the screen width; the
+    vertical position is derived from `path_y_ratio` so the figure's feet
+    always land exactly on the drawn path. `gait_offset`/`gait_speed` let each
+    individual passage start the walk cycle at a different point and pace
+    (see `Game._start_passage`), so consecutive walks don't play back in
+    lockstep even with the same `appearance`.
+    """
+    width, height = surface.get_size()
+    ground_height = height * GROUND_HEIGHT_RATIO
+    sky_height = height - ground_height
+    x = width * x_ratio
+    foot_y = sky_height + ground_height * path_y_ratio(x_ratio)
+
+    phase = elapsed * 9 * gait_speed * appearance.stride_scale + gait_offset
+    # Quantizing the continuous sine into eighths before using it to place
+    # limbs gives the walk a slight stepped snap between poses — closer to
+    # how a low-frame-count sprite animation reads than a perfectly smooth
+    # interpolation would.
+    stride = round(math.sin(phase) * 8) / 8
+    bob = abs(math.cos(phase)) * 3 * appearance.bob_scale
+
+    unit = TRAVELER_PIXEL
+    leg_h, torso_h, head_h = 6 * unit, 6 * unit, 4 * unit
+    hip_y = foot_y - leg_h - bob
+    shoulder_y = hip_y - torso_h
+    head_bottom = shoulder_y
+
+    leg_reach = 2.5 * unit * stride
+    _pixel_rect(surface, appearance.trousers, x - unit - leg_reach, hip_y, 2 * unit, leg_h)
+    _pixel_rect(surface, appearance.trousers, x + leg_reach - unit, hip_y, 2 * unit, leg_h)
+    # Feet as small dark blocks at the base of each leg read better than the
+    # trouser color simply stopping at the ground.
+    shoe_color = _darken(appearance.trousers, 0.4)
+    _pixel_rect(
+        surface, shoe_color, x - unit - leg_reach - unit * 0.3, foot_y - unit, 2.6 * unit, unit
+    )
+    _pixel_rect(
+        surface, shoe_color, x + leg_reach - unit - unit * 0.3, foot_y - unit, 2.6 * unit, unit
+    )
+
+    # A satchel drawn behind the torso, on whichever side is currently the
+    # "back" arm, so it reads as slung over one shoulder rather than floating.
+    satchel_side = -1 if stride >= 0 else 1
+    _pixel_rect(
+        surface,
+        _lighten(_darken(appearance.tunic, 0.3), 0.1),
+        x + satchel_side * 2.6 * unit,
+        shoulder_y + unit,
+        2 * unit,
+        3 * unit,
+    )
+
+    _pixel_rect(surface, appearance.tunic, x - 2.5 * unit, shoulder_y, 5 * unit, torso_h)
+
+    arm_reach = 2 * unit * stride
+    arm_color = appearance.skin
+    _pixel_rect(surface, arm_color, x - 3 * unit - arm_reach * 0.4, shoulder_y, unit, 4.5 * unit)
+    _pixel_rect(surface, arm_color, x + 2 * unit + arm_reach * 0.4, shoulder_y, unit, 4.5 * unit)
+
+    _pixel_rect(surface, appearance.skin, x - 2 * unit, head_bottom - head_h, 4 * unit, head_h)
+    # Hair as a cap over the top third of the head block plus a fringe row —
+    # simple, but enough to break up the skin block into a recognizable head.
+    _pixel_rect(surface, appearance.hair, x - 2 * unit, head_bottom - head_h, 4 * unit, unit * 1.4)
+    _pixel_rect(surface, appearance.hair, x - 2.2 * unit, head_bottom - head_h, unit * 0.6, head_h)
+    _pixel_rect(surface, appearance.hair, x + 1.6 * unit, head_bottom - head_h, unit * 0.6, head_h)
+
+
+POSE_HEAD_LEAN: dict[str, float] = {
+    "standing": 0.0,
+    "sitting": 0.35,
+    "crouching": 0.55,
+}
+
+
+def draw_portrait(
+    surface: pygame.Surface,
+    rect: pygame.Rect,
+    palette: Palette,
+    appearance: PersonAppearance,
+    pose: str,
+    elapsed: float,
+    prop: str | None = None,
+) -> None:
+    """Draw a close-up bust portrait of the NPC a stage's situation describes.
+
+    Built from the same blocky-rectangle technique as `draw_traveler`, just
+    at a larger scale and cropped at the shoulders, visual-novel style,
+    instead of a full walking body — a stage's question has room for a
+    close-up but not a full figure once the text panel and choice buttons
+    are laid out. A slow idle bob and an occasional blink keep it from
+    reading as a still image even though nothing about the pose is meant to
+    move far; `pose` leans the head slightly for "sitting"/"crouching" so
+    the same bust reads as resting rather than standing at attention.
+    """
+    unit = rect.width / 24
+    cx = rect.centerx
+    lean = POSE_HEAD_LEAN.get(pose, 0.0) * unit
+
+    # A soft round backdrop behind the bust reads as a close-up vignette,
+    # distinguishing the portrait area from the flat panel behind it.
+    backdrop_radius = round(rect.width * 0.56)
+    backdrop = pygame.Surface((backdrop_radius * 2, backdrop_radius * 2), pygame.SRCALPHA)
+    pygame.draw.circle(
+        backdrop,
+        (*_darken(palette.panel, 0.08), 255),
+        (backdrop_radius, backdrop_radius),
+        backdrop_radius,
+    )
+    surface.blit(backdrop, (cx - backdrop_radius, rect.top - backdrop_radius * 0.15))
+
+    # Idle breathing: a slow, small vertical drift, independent of any walk
+    # cycle — this portrait never walks, it just isn't perfectly frozen.
+    breathe = math.sin(elapsed * 1.3) * unit * 0.18
+
+    shoulder_h = 6 * unit
+    shoulder_y = rect.bottom - shoulder_h + breathe
+    _pixel_rect(surface, appearance.tunic, cx - 8 * unit, shoulder_y, 16 * unit, shoulder_h)
+
+    neck_y = shoulder_y - 2 * unit
+    _pixel_rect(surface, appearance.skin, cx - 2 * unit, neck_y, 4 * unit, 2.2 * unit)
+
+    head_h = 11 * unit
+    head_y = neck_y - head_h
+    head_x = cx - 5 * unit + lean
+    _pixel_rect(surface, appearance.skin, head_x, head_y, 10 * unit, head_h)
+
+    # Hair: a cap over the crown plus two side locks framing the face.
+    _pixel_rect(surface, appearance.hair, head_x, head_y, 10 * unit, 3.2 * unit)
+    _pixel_rect(surface, appearance.hair, head_x - 0.8 * unit, head_y, unit, head_h * 0.7)
+    _pixel_rect(surface, appearance.hair, head_x + 9.8 * unit, head_y, unit, head_h * 0.7)
+
+    # Eyes blink shut for a brief window every few seconds rather than
+    # staying open forever — the one detail that most reads as "alive"
+    # in a close-up, blocky or not.
+    blink = (elapsed * 1.0) % 4.0 > 3.75
+    eye_h = 0.4 * unit if not blink else 0.08 * unit
+    eye_y = head_y + 5.6 * unit
+    eye_color = _darken(appearance.skin, 0.75)
+    _pixel_rect(surface, eye_color, head_x + 1.8 * unit, eye_y, 1.6 * unit, eye_h)
+    _pixel_rect(surface, eye_color, head_x + 6.6 * unit, eye_y, 1.6 * unit, eye_h)
+
+    mouth_y = head_y + 8.3 * unit
+    _pixel_rect(
+        surface, _darken(appearance.skin, 0.55), head_x + 3.5 * unit, mouth_y, 3 * unit, 0.5 * unit
+    )
+
+    if prop == "well":
+        _draw_well_prop(surface, palette, rect)
+
+
+def _draw_well_prop(surface: pygame.Surface, palette: Palette, rect: pygame.Rect) -> None:
+    """Draw a small stone well beside the portrait, hinting at the described setting."""
+    unit = rect.width / 24
+    base_x = rect.left - unit
+    base_y = rect.bottom - 8 * unit
+    stone = _lighten(palette.ground, 0.35)
+    _pixel_rect(surface, stone, base_x, base_y, 6 * unit, 6 * unit)
+    _pixel_rect(surface, _darken(stone, 0.3), base_x + unit, base_y + unit, 4 * unit, 4 * unit)
+    roof_color = _darken(palette.ground, 0.45)
+    roof_points = [
+        (base_x - unit, base_y),
+        (base_x + 3 * unit, base_y - 3 * unit),
+        (base_x + 7 * unit, base_y),
+    ]
+    pygame.draw.polygon(surface, roof_color, roof_points)
+
+
+def _pixel_rect(
+    surface: pygame.Surface, color: Color, left: float, top: float, w: float, h: float
+) -> None:
+    """Draw one blocky sprite rectangle, rounded to whole pixels for crisp edges."""
+    pygame.draw.rect(surface, color, pygame.Rect(round(left), round(top), round(w), round(h)))
 
 
 def _draw_clouds(
@@ -249,6 +618,50 @@ def _draw_cloud(surface: pygame.Surface, color: Color, x: float, y: float, scale
             round(unit * radius_ratio),
         )
     surface.blit(cloud, (x - center, y - center))
+
+
+def _draw_birds(
+    surface: pygame.Surface, color: Color, width: int, sky_height: int, elapsed: float
+) -> None:
+    """Draw a couple of distant birds drifting across the sky, wings flapping."""
+    for y_ratio, speed, scale, start_ratio in BIRDS:
+        span = width + 40
+        x = (start_ratio * span + elapsed * speed) % span - 20
+        y = round(sky_height * y_ratio)
+        _draw_bird(surface, color, x, y, scale, elapsed)
+
+
+def _draw_bird(
+    surface: pygame.Surface, color: Color, x: float, y: float, scale: float, elapsed: float
+) -> None:
+    """Draw one bird as a flapping 'M' — two strokes whose outer ends bob with a wingbeat."""
+    span = 9 * scale
+    # The wingtips swing between raised and lowered on a fast sine — the
+    # center point stays put, so it reads as a flap rather than a bounce.
+    flap = math.sin(elapsed * 9 + x * 0.05) * span * 0.6
+    left = (x - span, y - flap)
+    right = (x + span, y - flap)
+    center = (x, y)
+    pygame.draw.lines(surface, color, False, [left, center, right], max(1, round(scale)))
+
+
+def _draw_fireflies(surface: pygame.Surface, width: int, height: int, elapsed: float) -> None:
+    """Draw a handful of softly pulsing fireflies drifting in small loops near the ground."""
+    for x_ratio, y_ratio, phase, flicker_speed in FIREFLIES:
+        # Local wandering rather than travel: a small circular drift around
+        # the spot's own anchor point, independent per firefly via `phase`.
+        drift_x = math.cos(elapsed * 0.5 + phase) * 14
+        drift_y = math.sin(elapsed * 0.7 + phase) * 8
+        x = width * x_ratio + drift_x
+        y = height * y_ratio + drift_y
+        # Alpha pulses between a dim glow and a bright flash — fireflies
+        # blink, they don't glow steadily.
+        pulse = 0.5 + 0.5 * math.sin(elapsed * flicker_speed + phase)
+        alpha = round(60 + 180 * pulse**3)
+        glow = pygame.Surface((12, 12), pygame.SRCALPHA)
+        pygame.draw.circle(glow, (255, 244, 180, alpha), (6, 6), 5)
+        pygame.draw.circle(glow, (255, 255, 220, min(255, alpha + 60)), (6, 6), 2)
+        surface.blit(glow, (x - 6, y - 6))
 
 
 def _draw_sun(surface: pygame.Surface, color: Color, width: int, sky_height: int) -> None:
@@ -300,6 +713,66 @@ def _draw_hill(
     # alone nearly disappears. `aalines` (vs. `lines`) keeps it a soft edge
     # rather than a hard, technical-looking outline.
     pygame.draw.aalines(surface, _darken(color, 0.14), False, crest_points)
+
+
+# Cache the vignette by (width, height): its rings never change frame to
+# frame, so rebuilding it from scratch every draw_scene call would burn a
+# ring of per-pixel alpha circles 60 times a second for no visual benefit.
+_VIGNETTE_CACHE: dict[tuple[int, int], pygame.Surface] = {}
+
+
+def _vignette_surface(width: int, height: int) -> pygame.Surface:
+    """Return a cached black radial-gradient overlay for darkening screen edges."""
+    key = (width, height)
+    cached = _VIGNETTE_CACHE.get(key)
+    if cached is not None:
+        return cached
+    vignette = pygame.Surface((width, height), pygame.SRCALPHA)
+    center = (width / 2, height / 2)
+    max_radius = math.hypot(*center)
+    # Concentric rings, transparent at the center and darkening outward —
+    # each ring is a full-size circle so overlapping alpha builds up
+    # smoothly rather than showing banding at ring boundaries.
+    rings = 24
+    for i in range(rings, 0, -1):
+        t = i / rings
+        radius = round(max_radius * t)
+        alpha = round(255 * VIGNETTE_STRENGTH * t)
+        pygame.draw.circle(vignette, (0, 0, 0, alpha), center, radius)
+    # The innermost ring/circle above still covers the center at low alpha;
+    # cutting a fully transparent hole restores a clear, undarkened middle.
+    pygame.draw.circle(vignette, (0, 0, 0, 0), center, round(max_radius * 0.35))
+    _VIGNETTE_CACHE[key] = vignette
+    return vignette
+
+
+def _draw_path(
+    surface: pygame.Surface, palette: Palette, width: int, sky_height: int, ground_height: float
+) -> None:
+    """Draw the winding dirt path as a ribbon following `path_y_ratio`.
+
+    Built the same way as a hill silhouette (a strip of sampled points turned
+    into a filled polygon), but as a bounded-width ribbon rather than a
+    fill-to-the-bottom shape, since the path needs a far *and* near edge.
+    """
+    steps = 40
+    path_color = _lighten(palette.ground, 0.22)
+    half_width = ground_height * PATH_WIDTH_RATIO / 2
+    top_edge = []
+    bottom_edge = []
+    for i in range(steps + 1):
+        x = width * i / steps
+        center_y = sky_height + ground_height * path_y_ratio(i / steps)
+        top_edge.append((x, center_y - half_width))
+        bottom_edge.append((x, center_y + half_width))
+    pygame.draw.polygon(surface, path_color, [*top_edge, *reversed(bottom_edge)])
+    # A darker rut line down the center reads as wear from travel, breaking
+    # up what would otherwise be a flat band of a single color.
+    center_line = [
+        (x, sky_height + ground_height * path_y_ratio(i / steps))
+        for i, x in ((i, width * i / steps) for i in range(steps + 1))
+    ]
+    pygame.draw.aalines(surface, _darken(path_color, 0.12), False, center_line)
 
 
 def _draw_trees(

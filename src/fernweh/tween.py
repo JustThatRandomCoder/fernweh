@@ -7,6 +7,7 @@ and calls back on completion. No pygame import — this is pure math.
 
 from __future__ import annotations
 
+import random
 from collections.abc import Callable
 
 EasingFunction = Callable[[float], float]
@@ -97,3 +98,45 @@ class Tween:
         self.elapsed = 0.0
         self.done = False
         self.value = self.start
+
+
+class Passage:
+    """Tracks progress through a text-free travel sequence between two stages.
+
+    Distinct from `Tween`: a `Tween` interpolates a value for a caller who
+    already knows what to do with it, while a `Passage` is a bare timer with
+    a `progress` fraction — the caller (the traveler's animation, the game
+    loop's decision to move on) derives whatever it needs from that fraction
+    itself. `skip()` lets a player who doesn't want to watch the walk jump
+    straight to `done` without waiting out the remaining duration.
+
+    `gait_offset`/`gait_speed` are rolled once per passage from an optional
+    `rng` so consecutive walks don't animate in exact lockstep with each
+    other — a caller that doesn't care about that variation (e.g. a test)
+    can simply omit `rng` and get the neutral defaults (0.0, 1.0).
+    """
+
+    def __init__(self, duration: float, rng: random.Random | None = None) -> None:
+        self.duration = duration
+        self.elapsed = 0.0
+        self.done = False
+        self.gait_offset = rng.uniform(0.0, 10.0) if rng else 0.0
+        self.gait_speed = rng.uniform(0.85, 1.15) if rng else 1.0
+
+    def update(self, dt: float) -> None:
+        """Advance the passage by `dt` seconds."""
+        if self.done:
+            return
+        self.elapsed = min(self.duration, self.elapsed + dt)
+        if self.elapsed >= self.duration:
+            self.done = True
+
+    def skip(self) -> None:
+        """End the passage immediately, as if its duration had fully elapsed."""
+        self.elapsed = self.duration
+        self.done = True
+
+    @property
+    def progress(self) -> float:
+        """Fraction of the passage elapsed, in [0, 1]."""
+        return self.elapsed / self.duration

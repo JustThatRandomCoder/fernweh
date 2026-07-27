@@ -285,12 +285,130 @@ with the intro. Whether it's been seen is just whether `self.dialog` is `None`, 
 flag that resets on every process start (never persisted), matching the "skippable on
 replay, not saved" requirement.
 
+**Path (`_draw_path`/`path_y_ratio`).** A winding dirt path drawn as a bounded-width ribbon
+through the foreground of the ground band, using the same "sample points along a sine wave"
+technique as the hills but with a near *and* far edge instead of filling to the bottom of the
+screen. `path_y_ratio(x_ratio)` is exposed as a standalone pure function (not folded into
+`_draw_path`) specifically so `Game._draw_passage` can walk the traveler silhouette along the
+exact same curve — computing the curve twice risked the path and the traveler's feet drifting
+out of sync the moment either one's constants changed.
+
+**Third hill layer and vignette.** A third, most-distant hill layer was added to `HILL_LAYERS`
+for more parallax depth. A radial vignette (`_vignette_surface`, cached per screen size in
+`_VIGNETTE_CACHE` since its rings never change frame to frame) darkens the screen edges by
+drawing concentric full-size circles largest-alpha-first — each smaller circle overwrites the
+previous one's center with a lower alpha, which is only correct because `pygame.draw` on an
+`SRCALPHA` surface replaces pixels rather than blending with what's already there; blending
+would have produced the opposite (edges darkest where fewest circles overlap) of what's
+intended.
+
+**Birds and fireflies.** Birds (`_draw_birds`, spring/summer only) reuse the clouds' wrap-
+around drift technique but render a flapping "M" silhouette instead of a puff cluster, with
+wingtip position driven by a fast sine so it reads as a flap rather than a bob. Fireflies
+(`_draw_fireflies`, summer only) deliberately do *not* reuse the particle system — particles
+model falling weather, but fireflies wander in small local loops around a fixed anchor point
+(`cos`/`sin` of `elapsed` at a slow frequency) with a pulsing alpha (`sin` at a per-firefly
+`flicker_speed`, cubed to make the flash read as a snap rather than a smooth fade).
+
+**Traveler and passages.** Two new pieces work together to give the player a break from
+questions between stages, since a wall of choice-after-choice was the main reason the game
+read as flat despite the scene rendering already having depth. `scenes.draw_traveler` draws a
+blocky pixel-art figure — a grid of `_pixel_rect` blocks at a `TRAVELER_PIXEL` unit size,
+not thin lines — whose feet are pinned to `path_y_ratio` at whatever `x_ratio` it's given.
+It's a standalone function, not folded into `draw_scene`, because only a passage needs the
+traveler in motion; every other screen (a stage's question, the ending) has no use for it.
+
+The figure isn't one fixed look: `TravelerAppearance` bundles skin/hair/tunic/trouser colors
+plus a `bob_scale`/`stride_scale` pair, and `random_traveler_appearance(rng)` rolls one from
+small curated palettes (`SKIN_TONES`, `HAIR_COLORS`, `TUNIC_COLORS`, `TROUSER_COLORS`) rather
+than arbitrary RGB — arbitrary random color would occasionally land on an ugly or unreadable
+combination, where drawing from a curated set of plausible tones never does. `Game` rolls one
+`traveler_appearance` at startup and again in `_restart`, so the traveler looks consistent for
+one playthrough but different across playthroughs. Beyond appearance, each individual
+`Passage` (see below) also rolls its own `gait_offset`/`gait_speed`, so even two walks by the
+*same*-looking traveler don't animate in exact lockstep — `draw_traveler` folds those into the
+walk-cycle phase, and quantizes the resulting sine into eighths before placing limbs, which
+gives the stride a slight stepped snap closer to a low-frame sprite than a perfectly smooth
+interpolation.
+
+`tween.Passage` is a bare elapsed/duration timer with a `progress` fraction and a `skip()` —
+deliberately not a `Tween`, since nothing here is interpolating a value the class itself would
+own; the caller (the traveler's x position, the game loop's decision to move on) derives
+whatever it needs from `progress` itself. Its optional `rng` argument is what rolls
+`gait_offset`/`gait_speed` on construction; omitting it (as a test can) yields the neutral
+defaults `(0.0, 1.0)` instead of requiring every caller to care about gait variation.
+
+`Game._start_passage` fires after a non-fatal choice, clearing the buttons/typewriter and
+setting `Game._passage`; `_update` then branches early while a passage is active — the
+particle system and `_elapsed` keep advancing (so weather and the traveler's stride stay
+smooth), but nothing else about the old stage's UI does, since it's no longer showing. Once
+the passage completes (naturally or via a click/key that calls `skip()`), `_sync_stage` runs
+for the first time since the choice was made, which is what actually swaps in the new stage's
+text, particle system (new weather), and buttons, plus the existing crossfade transition — so
+the passage's last frame dissolves into the next question rather than cutting. A fatal choice
+skips the passage entirely (`_sync_ending` fires immediately from the normal `_update` path):
+walking scenery doesn't fit the moment a journey ends. `_draw` mirrors this branching, calling
+`Game._draw_passage` (which just positions the traveler along `PASSAGE_X_START`–
+`PASSAGE_X_END`, eased with `ease_in_out_quad` so the walk starts and stops gradually instead
+of at a constant robotic speed) and returning early — the text panel, buttons, and keepsakes
+never draw while a passage is on screen.
+
+**NPC portraits (`scenes.draw_portrait`, `stages.SceneCharacter`).** A stage whose situation
+describes a specific person (the woman at the well, the trader at the market) can declare an
+optional `character` block in `content/stages.json`; `stages._parse_character` validates it
+against fixed vocabularies (`VALID_ROLES`/`VALID_POSES`/`VALID_SKIN_TONES`/etc.) and produces a
+`SceneCharacter`, kept `None` on the majority of stages that describe an empty landscape rather
+than a person. Content can't reference raw RGB — it can't, and shouldn't have to, know how the
+rendering layer represents color — so the block uses plain strings ("woman", "sitting", "tan",
+"auburn", "green"); `stages.py` validates those strings against its own fixed sets, and
+`scenes.py` separately maps the same string keys to actual `Color` tuples via
+`NAMED_SKIN_TONES`/`NAMED_HAIR_COLORS`/`NAMED_TUNIC_COLORS`. This is the same "shared vocabulary,
+duplicated by convention across the logic/rendering boundary" relationship `SEASONS` already has
+with `SEASON_PALETTES` — `stages.py` still imports nothing pygame-related.
+
+`draw_portrait` renders a close-up bust — head, neck, cropped shoulders — at a larger block
+scale than `draw_traveler`'s full-body walk, visual-novel style, since a stage's layout has room
+for a close-up beside the situation text but not a full figure once the text panel and choice
+buttons are laid out. It isn't a still image: a slow sine drives an idle "breathing" bob, and the
+eyes blink shut for a brief window on a repeating cycle — the one detail that reads as "alive"
+in a blocky close-up regardless of resolution. `pose` ("sitting"/"crouching"/"standing") leans
+the head slightly via `POSE_HEAD_LEAN` rather than attempting actual rotation (`pygame.draw.rect`
+has no rotation), which is enough to read as resting vs. standing at attention. An optional
+`prop` (currently just `"well"`) draws a small matching set piece beside the portrait so a
+stage's described setting isn't only conveyed through the panel description text.
+
+`Game._sync_stage` builds the portrait's `PersonAppearance` once per stage sync via
+`scenes.person_appearance_from_names` (deterministic, unlike the player traveler's randomly
+rolled look, since a named recurring character's portrait shouldn't change between runs) and
+stores it alongside the `SceneCharacter` in `self._stage_character`; `_draw` narrows the wrapped
+situation-text rect by `PORTRAIT_SIZE + PORTRAIT_GAP` only on stages that have one, so the text
+reflows around the portrait rather than either overlapping it or leaving unused space on stages
+with no NPC. `_sync_ending` explicitly clears `_stage_character` to `None`, since reaching the
+ending doesn't necessarily go through `_sync_stage` (a mid-stage failure can end the game without
+one) and a stale portrait would otherwise persist onto the ending screen.
+
+**A companion's portrait is who shows up on the road.** The four stages that offer a
+companion (Mira, Sable, Talia, Emet, Wren — five characters, one is declined depending on
+choices) are exactly the stages that declare a `character` block, and `_sync_stage` uses that
+overlap deliberately: for every choice on the current stage with a `companion` field, it records
+that companion's id against the exact `PersonAppearance` just built for the portrait, in
+`Game._companion_appearances`. If the player recruits them, `_draw_passage` (see Traveler and
+passages above) looks their appearance up by id when drawing the party, so the person walking
+behind the traveler in every later passage is visibly the same person whose portrait was just on
+screen — not a second, unrelated random look. A companion recruited through any future content
+that *doesn't* pair a portrait with an invite choice still renders correctly: `_draw_passage`
+falls back to `scenes.appearance_for_seed(companion.id)`, a deterministic-but-unauthored look
+keyed off their id, so nothing crashes and they still look consistent across passages — just
+without the guaranteed portrait match.
+
 ## Data Format
 
 Stages live in `content/stages.json` as a single `{"stages": [...]}` array, one entry per
 stage index (0-based, contiguous, no gaps — enforced by `stages._validate_stage_sequence`).
 Each stage declares its `season`, a `scene` dict (`description` + `weather`, used later by
 the renderer to pick a palette/particle effect), a `situation` string, and 2–3 `choices`.
+`scene` may also declare an optional `character` block (see NPC portraits above) describing
+an NPC the situation text mentions, with an optional `prop`; most stages omit it entirely.
 
 A choice's `effects` dict may only use the keys in `stages.VALID_EFFECT_KEYS` (`energy`,
 `supplies`); `affliction_chance`, `cures`, and `unavailable_if` may only reference ids in
