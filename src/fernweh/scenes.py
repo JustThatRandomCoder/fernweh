@@ -98,9 +98,14 @@ GROUND_HEIGHT_RATIO = 0.28
 # lower) and drawn on top of it — the "2-3 layer parallax" the design brief
 # calls for.
 HILL_LAYERS = (
+    (0.08, 0.95, 0.9, 4.1, 0.5),
     (0.25, 0.85, 1.3, 0.5, 0.32),
     (0.48, 0.55, 1.8, 2.6, -0.16),
 )
+# A soft radial darkening toward the screen edges, drawn last over everything
+# else — pulls the eye toward the center the way a photographed vignette
+# does, and adds depth to what would otherwise be a flat, evenly-lit scene.
+VIGNETTE_STRENGTH = 0.35
 SUN_POSITION_RATIO = (0.78, 0.16)
 SUN_RADIUS_RATIO = 0.075
 # Each cloud is (y_ratio within the sky, drift speed in px/second, size scale,
@@ -244,6 +249,8 @@ def draw_scene(
     # rooted in the ground band.
     _draw_trees(surface, palette, width, height, ground_height, elapsed)
 
+    surface.blit(_vignette_surface(width, height), (0, 0))
+
 
 def _draw_clouds(
     surface: pygame.Surface, color: Color, width: int, sky_height: int, elapsed: float
@@ -328,6 +335,37 @@ def _draw_hill(
     # alone nearly disappears. `aalines` (vs. `lines`) keeps it a soft edge
     # rather than a hard, technical-looking outline.
     pygame.draw.aalines(surface, _darken(color, 0.14), False, crest_points)
+
+
+# Cache the vignette by (width, height): its rings never change frame to
+# frame, so rebuilding it from scratch every draw_scene call would burn a
+# ring of per-pixel alpha circles 60 times a second for no visual benefit.
+_VIGNETTE_CACHE: dict[tuple[int, int], pygame.Surface] = {}
+
+
+def _vignette_surface(width: int, height: int) -> pygame.Surface:
+    """Return a cached black radial-gradient overlay for darkening screen edges."""
+    key = (width, height)
+    cached = _VIGNETTE_CACHE.get(key)
+    if cached is not None:
+        return cached
+    vignette = pygame.Surface((width, height), pygame.SRCALPHA)
+    center = (width / 2, height / 2)
+    max_radius = math.hypot(*center)
+    # Concentric rings, transparent at the center and darkening outward —
+    # each ring is a full-size circle so overlapping alpha builds up
+    # smoothly rather than showing banding at ring boundaries.
+    rings = 24
+    for i in range(rings, 0, -1):
+        t = i / rings
+        radius = round(max_radius * t)
+        alpha = round(255 * VIGNETTE_STRENGTH * t)
+        pygame.draw.circle(vignette, (0, 0, 0, alpha), center, radius)
+    # The innermost ring/circle above still covers the center at low alpha;
+    # cutting a fully transparent hole restores a clear, undarkened middle.
+    pygame.draw.circle(vignette, (0, 0, 0, 0), center, round(max_radius * 0.35))
+    _VIGNETTE_CACHE[key] = vignette
+    return vignette
 
 
 def _draw_path(
