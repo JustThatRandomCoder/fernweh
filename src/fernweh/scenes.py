@@ -142,6 +142,27 @@ PATH_AMPLITUDE_RATIO = 0.16
 PATH_WAVE_COUNT = 1.6
 PATH_PHASE = 1.1
 PATH_WIDTH_RATIO = 0.05
+# Birds only fly in the warmer half of the year — each is a (y_ratio, speed,
+# scale, start_ratio) tuple, same shape and wrap-around drift technique as
+# CLOUDS above, just rendered as a flapping "M" silhouette instead of a puff
+# cluster.
+BIRD_SEASONS = ("spring", "summer")
+BIRDS = (
+    (0.22, 34.0, 1.0, 0.15),
+    (0.27, 30.0, 0.8, 0.62),
+)
+# Fireflies only appear on summer evenings, drifting in small loops near the
+# foreground rather than falling like weather particles — each is
+# (x_ratio, y_ratio, phase, flicker_speed), fixed positions that only move
+# locally, so they read as insects wandering a patch of ground, not rain.
+FIREFLY_SEASON = "summer"
+FIREFLIES = (
+    (0.15, 0.72, 0.0, 2.1),
+    (0.30, 0.8, 1.4, 1.7),
+    (0.68, 0.76, 2.6, 2.4),
+    (0.82, 0.68, 4.1, 1.9),
+    (0.5, 0.85, 3.2, 2.6),
+)
 
 
 def path_y_ratio(x_ratio: float) -> float:
@@ -213,6 +234,8 @@ def draw_scene(
 
     _draw_sun(surface, palette.accent, width, sky_height)
     _draw_clouds(surface, _lighten(palette.sky_bottom, 0.45), width, sky_height, elapsed)
+    if season in BIRD_SEASONS:
+        _draw_birds(surface, _darken(palette.sky_bottom, 0.55), width, sky_height, elapsed)
 
     # The flat ground band is the base fill, drawn *before* the hills — hills
     # are the foreground silhouette layered on top, so their crests can rise
@@ -249,6 +272,9 @@ def draw_scene(
     # rooted in the ground band.
     _draw_trees(surface, palette, width, height, ground_height, elapsed)
 
+    if season == FIREFLY_SEASON:
+        _draw_fireflies(surface, width, height, elapsed)
+
     surface.blit(_vignette_surface(width, height), (0, 0))
 
 
@@ -284,6 +310,50 @@ def _draw_cloud(surface: pygame.Surface, color: Color, x: float, y: float, scale
             round(unit * radius_ratio),
         )
     surface.blit(cloud, (x - center, y - center))
+
+
+def _draw_birds(
+    surface: pygame.Surface, color: Color, width: int, sky_height: int, elapsed: float
+) -> None:
+    """Draw a couple of distant birds drifting across the sky, wings flapping."""
+    for y_ratio, speed, scale, start_ratio in BIRDS:
+        span = width + 40
+        x = (start_ratio * span + elapsed * speed) % span - 20
+        y = round(sky_height * y_ratio)
+        _draw_bird(surface, color, x, y, scale, elapsed)
+
+
+def _draw_bird(
+    surface: pygame.Surface, color: Color, x: float, y: float, scale: float, elapsed: float
+) -> None:
+    """Draw one bird as a flapping 'M' — two strokes whose outer ends bob with a wingbeat."""
+    span = 9 * scale
+    # The wingtips swing between raised and lowered on a fast sine — the
+    # center point stays put, so it reads as a flap rather than a bounce.
+    flap = math.sin(elapsed * 9 + x * 0.05) * span * 0.6
+    left = (x - span, y - flap)
+    right = (x + span, y - flap)
+    center = (x, y)
+    pygame.draw.lines(surface, color, False, [left, center, right], max(1, round(scale)))
+
+
+def _draw_fireflies(surface: pygame.Surface, width: int, height: int, elapsed: float) -> None:
+    """Draw a handful of softly pulsing fireflies drifting in small loops near the ground."""
+    for x_ratio, y_ratio, phase, flicker_speed in FIREFLIES:
+        # Local wandering rather than travel: a small circular drift around
+        # the spot's own anchor point, independent per firefly via `phase`.
+        drift_x = math.cos(elapsed * 0.5 + phase) * 14
+        drift_y = math.sin(elapsed * 0.7 + phase) * 8
+        x = width * x_ratio + drift_x
+        y = height * y_ratio + drift_y
+        # Alpha pulses between a dim glow and a bright flash — fireflies
+        # blink, they don't glow steadily.
+        pulse = 0.5 + 0.5 * math.sin(elapsed * flicker_speed + phase)
+        alpha = round(60 + 180 * pulse**3)
+        glow = pygame.Surface((12, 12), pygame.SRCALPHA)
+        pygame.draw.circle(glow, (255, 244, 180, alpha), (6, 6), 5)
+        pygame.draw.circle(glow, (255, 255, 220, min(255, alpha + 60)), (6, 6), 2)
+        surface.blit(glow, (x - 6, y - 6))
 
 
 def _draw_sun(surface: pygame.Surface, color: Color, width: int, sky_height: int) -> None:
