@@ -285,6 +285,58 @@ with the intro. Whether it's been seen is just whether `self.dialog` is `None`, 
 flag that resets on every process start (never persisted), matching the "skippable on
 replay, not saved" requirement.
 
+**Path (`_draw_path`/`path_y_ratio`).** A winding dirt path drawn as a bounded-width ribbon
+through the foreground of the ground band, using the same "sample points along a sine wave"
+technique as the hills but with a near *and* far edge instead of filling to the bottom of the
+screen. `path_y_ratio(x_ratio)` is exposed as a standalone pure function (not folded into
+`_draw_path`) specifically so `Game._draw_passage` can walk the traveler silhouette along the
+exact same curve — computing the curve twice risked the path and the traveler's feet drifting
+out of sync the moment either one's constants changed.
+
+**Third hill layer and vignette.** A third, most-distant hill layer was added to `HILL_LAYERS`
+for more parallax depth. A radial vignette (`_vignette_surface`, cached per screen size in
+`_VIGNETTE_CACHE` since its rings never change frame to frame) darkens the screen edges by
+drawing concentric full-size circles largest-alpha-first — each smaller circle overwrites the
+previous one's center with a lower alpha, which is only correct because `pygame.draw` on an
+`SRCALPHA` surface replaces pixels rather than blending with what's already there; blending
+would have produced the opposite (edges darkest where fewest circles overlap) of what's
+intended.
+
+**Birds and fireflies.** Birds (`_draw_birds`, spring/summer only) reuse the clouds' wrap-
+around drift technique but render a flapping "M" silhouette instead of a puff cluster, with
+wingtip position driven by a fast sine so it reads as a flap rather than a bob. Fireflies
+(`_draw_fireflies`, summer only) deliberately do *not* reuse the particle system — particles
+model falling weather, but fireflies wander in small local loops around a fixed anchor point
+(`cos`/`sin` of `elapsed` at a slow frequency) with a pulsing alpha (`sin` at a per-firefly
+`flicker_speed`, cubed to make the flash read as a snap rather than a smooth fade).
+
+**Traveler and passages.** Two new pieces work together to give the player a break from
+questions between stages, since a wall of choice-after-choice was the main reason the game
+read as flat despite the scene rendering already having depth. `scenes.draw_traveler` draws a
+walking stick-figure silhouette (legs/arms swinging on opposite phases of a fast sine, a
+bobbing hip, a small satchel) whose feet are pinned to `path_y_ratio` at whatever `x_ratio`
+it's given — it's a standalone function, not folded into `draw_scene`, because only a passage
+needs the traveler in motion; every other screen (a stage's question, the ending) has no use
+for it. `tween.Passage` is a bare elapsed/duration timer with a `progress` fraction and a
+`skip()` — deliberately not a `Tween`, since nothing here is interpolating a value the class
+itself would own; the caller (the traveler's x position, the game loop's decision to move on)
+derives whatever it needs from `progress` itself.
+
+`Game._start_passage` fires after a non-fatal choice, clearing the buttons/typewriter and
+setting `Game._passage`; `_update` then branches early while a passage is active — the
+particle system and `_elapsed` keep advancing (so weather and the traveler's stride stay
+smooth), but nothing else about the old stage's UI does, since it's no longer showing. Once
+the passage completes (naturally or via a click/key that calls `skip()`), `_sync_stage` runs
+for the first time since the choice was made, which is what actually swaps in the new stage's
+text, particle system (new weather), and buttons, plus the existing crossfade transition — so
+the passage's last frame dissolves into the next question rather than cutting. A fatal choice
+skips the passage entirely (`_sync_ending` fires immediately from the normal `_update` path):
+walking scenery doesn't fit the moment a journey ends. `_draw` mirrors this branching, calling
+`Game._draw_passage` (which just positions the traveler along `PASSAGE_X_START`–
+`PASSAGE_X_END`, eased with `ease_in_out_quad` so the walk starts and stops gradually instead
+of at a constant robotic speed) and returning early — the text panel, buttons, and keepsakes
+never draw while a passage is on screen.
+
 ## Data Format
 
 Stages live in `content/stages.json` as a single `{"stages": [...]}` array, one entry per
