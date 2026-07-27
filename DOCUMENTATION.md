@@ -353,12 +353,62 @@ walking scenery doesn't fit the moment a journey ends. `_draw` mirrors this bran
 of at a constant robotic speed) and returning early — the text panel, buttons, and keepsakes
 never draw while a passage is on screen.
 
+**NPC portraits (`scenes.draw_portrait`, `stages.SceneCharacter`).** A stage whose situation
+describes a specific person (the woman at the well, the trader at the market) can declare an
+optional `character` block in `content/stages.json`; `stages._parse_character` validates it
+against fixed vocabularies (`VALID_ROLES`/`VALID_POSES`/`VALID_SKIN_TONES`/etc.) and produces a
+`SceneCharacter`, kept `None` on the majority of stages that describe an empty landscape rather
+than a person. Content can't reference raw RGB — it can't, and shouldn't have to, know how the
+rendering layer represents color — so the block uses plain strings ("woman", "sitting", "tan",
+"auburn", "green"); `stages.py` validates those strings against its own fixed sets, and
+`scenes.py` separately maps the same string keys to actual `Color` tuples via
+`NAMED_SKIN_TONES`/`NAMED_HAIR_COLORS`/`NAMED_TUNIC_COLORS`. This is the same "shared vocabulary,
+duplicated by convention across the logic/rendering boundary" relationship `SEASONS` already has
+with `SEASON_PALETTES` — `stages.py` still imports nothing pygame-related.
+
+`draw_portrait` renders a close-up bust — head, neck, cropped shoulders — at a larger block
+scale than `draw_traveler`'s full-body walk, visual-novel style, since a stage's layout has room
+for a close-up beside the situation text but not a full figure once the text panel and choice
+buttons are laid out. It isn't a still image: a slow sine drives an idle "breathing" bob, and the
+eyes blink shut for a brief window on a repeating cycle — the one detail that reads as "alive"
+in a blocky close-up regardless of resolution. `pose` ("sitting"/"crouching"/"standing") leans
+the head slightly via `POSE_HEAD_LEAN` rather than attempting actual rotation (`pygame.draw.rect`
+has no rotation), which is enough to read as resting vs. standing at attention. An optional
+`prop` (currently just `"well"`) draws a small matching set piece beside the portrait so a
+stage's described setting isn't only conveyed through the panel description text.
+
+`Game._sync_stage` builds the portrait's `PersonAppearance` once per stage sync via
+`scenes.person_appearance_from_names` (deterministic, unlike the player traveler's randomly
+rolled look, since a named recurring character's portrait shouldn't change between runs) and
+stores it alongside the `SceneCharacter` in `self._stage_character`; `_draw` narrows the wrapped
+situation-text rect by `PORTRAIT_SIZE + PORTRAIT_GAP` only on stages that have one, so the text
+reflows around the portrait rather than either overlapping it or leaving unused space on stages
+with no NPC. `_sync_ending` explicitly clears `_stage_character` to `None`, since reaching the
+ending doesn't necessarily go through `_sync_stage` (a mid-stage failure can end the game without
+one) and a stale portrait would otherwise persist onto the ending screen.
+
+**A companion's portrait is who shows up on the road.** The four stages that offer a
+companion (Mira, Sable, Talia, Emet, Wren — five characters, one is declined depending on
+choices) are exactly the stages that declare a `character` block, and `_sync_stage` uses that
+overlap deliberately: for every choice on the current stage with a `companion` field, it records
+that companion's id against the exact `PersonAppearance` just built for the portrait, in
+`Game._companion_appearances`. If the player recruits them, `_draw_passage` (see Traveler and
+passages above) looks their appearance up by id when drawing the party, so the person walking
+behind the traveler in every later passage is visibly the same person whose portrait was just on
+screen — not a second, unrelated random look. A companion recruited through any future content
+that *doesn't* pair a portrait with an invite choice still renders correctly: `_draw_passage`
+falls back to `scenes.appearance_for_seed(companion.id)`, a deterministic-but-unauthored look
+keyed off their id, so nothing crashes and they still look consistent across passages — just
+without the guaranteed portrait match.
+
 ## Data Format
 
 Stages live in `content/stages.json` as a single `{"stages": [...]}` array, one entry per
 stage index (0-based, contiguous, no gaps — enforced by `stages._validate_stage_sequence`).
 Each stage declares its `season`, a `scene` dict (`description` + `weather`, used later by
 the renderer to pick a palette/particle effect), a `situation` string, and 2–3 `choices`.
+`scene` may also declare an optional `character` block (see NPC portraits above) describing
+an NPC the situation text mentions, with an optional `prop`; most stages omit it entirely.
 
 A choice's `effects` dict may only use the keys in `stages.VALID_EFFECT_KEYS` (`energy`,
 `supplies`); `affliction_chance`, `cures`, and `unavailable_if` may only reference ids in
