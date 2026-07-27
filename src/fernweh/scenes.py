@@ -278,6 +278,53 @@ def draw_scene(
     surface.blit(_vignette_surface(width, height), (0, 0))
 
 
+def draw_traveler(
+    surface: pygame.Surface, palette: Palette, x_ratio: float, elapsed: float
+) -> None:
+    """Draw the traveler as a walking silhouette, feet planted on the path.
+
+    Called separately from `draw_scene` (rather than folded into it) because
+    only a passage between stages shows the traveler in motion — every other
+    screen (a stage's question, the ending) has no need for it. `x_ratio` is
+    the traveler's horizontal position as a fraction of the screen width;
+    the vertical position is derived from `path_y_ratio` so the figure's feet
+    always land exactly on the drawn path, never floating above or sinking
+    below it.
+    """
+    width, height = surface.get_size()
+    ground_height = height * GROUND_HEIGHT_RATIO
+    sky_height = height - ground_height
+    x = width * x_ratio
+    foot_y = sky_height + ground_height * path_y_ratio(x_ratio)
+
+    # A fast walk cycle: legs and arms swing opposite each other, and the
+    # whole figure bobs twice per stride (a footfall lands every half-cycle).
+    stride = math.sin(elapsed * 9)
+    bob = abs(math.cos(elapsed * 9)) * 3
+
+    color = _darken(palette.ground, 0.6)
+    hip = (x, foot_y - 30 - bob)
+    shoulder = (x, hip[1] - 16)
+    head_center = (x, shoulder[1] - 8)
+
+    leg_reach = 11
+    pygame.draw.line(surface, color, hip, (x - stride * leg_reach, foot_y), 3)
+    pygame.draw.line(surface, color, hip, (x + stride * leg_reach, foot_y), 3)
+    pygame.draw.line(surface, color, hip, shoulder, 3)
+
+    arm_reach = 8
+    hand_y = shoulder[1] + 15
+    pygame.draw.line(surface, color, shoulder, (x + stride * arm_reach, hand_y), 2)
+    pygame.draw.line(surface, color, shoulder, (x - stride * arm_reach, hand_y), 2)
+
+    pygame.draw.circle(surface, color, (round(head_center[0]), round(head_center[1])), 6)
+
+    # A small satchel slung on the traveler's back — a nod to the journey
+    # without needing an actual sprite or image asset.
+    satchel_center = (x - 6, shoulder[1] + 4)
+    pygame.draw.circle(surface, _lighten(color, 0.25), satchel_center, 4)
+
+
 def _draw_clouds(
     surface: pygame.Surface, color: Color, width: int, sky_height: int, elapsed: float
 ) -> None:

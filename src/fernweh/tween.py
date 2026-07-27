@@ -97,3 +97,38 @@ class Tween:
         self.elapsed = 0.0
         self.done = False
         self.value = self.start
+
+
+class Passage:
+    """Tracks progress through a text-free travel sequence between two stages.
+
+    Distinct from `Tween`: a `Tween` interpolates a value for a caller who
+    already knows what to do with it, while a `Passage` is a bare timer with
+    a `progress` fraction — the caller (the traveler's animation, the game
+    loop's decision to move on) derives whatever it needs from that fraction
+    itself. `skip()` lets a player who doesn't want to watch the walk jump
+    straight to `done` without waiting out the remaining duration.
+    """
+
+    def __init__(self, duration: float) -> None:
+        self.duration = duration
+        self.elapsed = 0.0
+        self.done = False
+
+    def update(self, dt: float) -> None:
+        """Advance the passage by `dt` seconds."""
+        if self.done:
+            return
+        self.elapsed = min(self.duration, self.elapsed + dt)
+        if self.elapsed >= self.duration:
+            self.done = True
+
+    def skip(self) -> None:
+        """End the passage immediately, as if its duration had fully elapsed."""
+        self.elapsed = self.duration
+        self.done = True
+
+    @property
+    def progress(self) -> float:
+        """Fraction of the passage elapsed, in [0, 1]."""
+        return self.elapsed / self.duration
