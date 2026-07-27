@@ -313,14 +313,30 @@ model falling weather, but fireflies wander in small local loops around a fixed 
 **Traveler and passages.** Two new pieces work together to give the player a break from
 questions between stages, since a wall of choice-after-choice was the main reason the game
 read as flat despite the scene rendering already having depth. `scenes.draw_traveler` draws a
-walking stick-figure silhouette (legs/arms swinging on opposite phases of a fast sine, a
-bobbing hip, a small satchel) whose feet are pinned to `path_y_ratio` at whatever `x_ratio`
-it's given — it's a standalone function, not folded into `draw_scene`, because only a passage
-needs the traveler in motion; every other screen (a stage's question, the ending) has no use
-for it. `tween.Passage` is a bare elapsed/duration timer with a `progress` fraction and a
-`skip()` — deliberately not a `Tween`, since nothing here is interpolating a value the class
-itself would own; the caller (the traveler's x position, the game loop's decision to move on)
-derives whatever it needs from `progress` itself.
+blocky pixel-art figure — a grid of `_pixel_rect` blocks at a `TRAVELER_PIXEL` unit size,
+not thin lines — whose feet are pinned to `path_y_ratio` at whatever `x_ratio` it's given.
+It's a standalone function, not folded into `draw_scene`, because only a passage needs the
+traveler in motion; every other screen (a stage's question, the ending) has no use for it.
+
+The figure isn't one fixed look: `TravelerAppearance` bundles skin/hair/tunic/trouser colors
+plus a `bob_scale`/`stride_scale` pair, and `random_traveler_appearance(rng)` rolls one from
+small curated palettes (`SKIN_TONES`, `HAIR_COLORS`, `TUNIC_COLORS`, `TROUSER_COLORS`) rather
+than arbitrary RGB — arbitrary random color would occasionally land on an ugly or unreadable
+combination, where drawing from a curated set of plausible tones never does. `Game` rolls one
+`traveler_appearance` at startup and again in `_restart`, so the traveler looks consistent for
+one playthrough but different across playthroughs. Beyond appearance, each individual
+`Passage` (see below) also rolls its own `gait_offset`/`gait_speed`, so even two walks by the
+*same*-looking traveler don't animate in exact lockstep — `draw_traveler` folds those into the
+walk-cycle phase, and quantizes the resulting sine into eighths before placing limbs, which
+gives the stride a slight stepped snap closer to a low-frame sprite than a perfectly smooth
+interpolation.
+
+`tween.Passage` is a bare elapsed/duration timer with a `progress` fraction and a `skip()` —
+deliberately not a `Tween`, since nothing here is interpolating a value the class itself would
+own; the caller (the traveler's x position, the game loop's decision to move on) derives
+whatever it needs from `progress` itself. Its optional `rng` argument is what rolls
+`gait_offset`/`gait_speed` on construction; omitting it (as a test can) yields the neutral
+defaults `(0.0, 1.0)` instead of requiring every caller to care about gait variation.
 
 `Game._start_passage` fires after a non-fatal choice, clearing the buttons/typewriter and
 setting `Game._passage`; `_update` then branches early while a passage is active — the

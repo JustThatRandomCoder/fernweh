@@ -8,6 +8,7 @@ so adding a new season/palette never touches the game loop.
 from __future__ import annotations
 
 import math
+import random
 
 import pygame
 
@@ -278,18 +279,87 @@ def draw_scene(
     surface.blit(_vignette_surface(width, height), (0, 0))
 
 
+class TravelerAppearance:
+    """A traveler's look and gait, rolled once so every human looks/moves a little different.
+
+    Colors are chosen from small curated palettes rather than arbitrary random
+    RGB — that keeps every combination readable as "a person" instead of
+    occasionally producing an ugly or unreadable color clash. `bob_scale` and
+    `stride_scale` vary the walk itself (how bouncy, how long a stride) so two
+    playthroughs don't just look like different outfits on an identical
+    animation.
+    """
+
+    def __init__(
+        self,
+        skin: Color,
+        hair: Color,
+        tunic: Color,
+        trousers: Color,
+        bob_scale: float,
+        stride_scale: float,
+    ) -> None:
+        self.skin = skin
+        self.hair = hair
+        self.tunic = tunic
+        self.trousers = trousers
+        self.bob_scale = bob_scale
+        self.stride_scale = stride_scale
+
+
+# Curated, not exhaustive — a handful of plausible human skin/hair tones and a
+# handful of dyed-cloth colors that read as "traveler's clothes" in a muted
+# painterly game, not neon. `random_traveler_appearance` draws one of each.
+SKIN_TONES: tuple[Color, ...] = ((235, 200, 173), (210, 168, 125), (160, 116, 82), (96, 68, 52))
+HAIR_COLORS: tuple[Color, ...] = ((40, 32, 26), (92, 60, 34), (176, 142, 92), (58, 58, 62))
+TUNIC_COLORS: tuple[Color, ...] = (
+    (150, 66, 62),
+    (74, 104, 138),
+    (94, 128, 82),
+    (162, 122, 60),
+    (110, 82, 132),
+)
+TROUSER_COLORS: tuple[Color, ...] = ((66, 58, 50), (52, 58, 68), (86, 72, 54))
+
+
+def random_traveler_appearance(rng: random.Random) -> TravelerAppearance:
+    """Roll a new traveler look and gait from the curated palettes above."""
+    return TravelerAppearance(
+        skin=rng.choice(SKIN_TONES),
+        hair=rng.choice(HAIR_COLORS),
+        tunic=rng.choice(TUNIC_COLORS),
+        trousers=rng.choice(TROUSER_COLORS),
+        bob_scale=rng.uniform(0.75, 1.3),
+        stride_scale=rng.uniform(0.8, 1.25),
+    )
+
+
+# The traveler is built from chunky rectangles at this unit size rather than
+# thin lines — a small "pixel art" grid of blocks reads as a human figure the
+# way a retro sprite does, instead of a wireframe stick figure.
+TRAVELER_PIXEL = 3
+
+
 def draw_traveler(
-    surface: pygame.Surface, palette: Palette, x_ratio: float, elapsed: float
+    surface: pygame.Surface,
+    palette: Palette,
+    x_ratio: float,
+    elapsed: float,
+    appearance: TravelerAppearance,
+    gait_offset: float = 0.0,
+    gait_speed: float = 1.0,
 ) -> None:
-    """Draw the traveler as a walking silhouette, feet planted on the path.
+    """Draw the traveler as a blocky pixel-art figure, feet planted on the path.
 
     Called separately from `draw_scene` (rather than folded into it) because
     only a passage between stages shows the traveler in motion — every other
     screen (a stage's question, the ending) has no need for it. `x_ratio` is
-    the traveler's horizontal position as a fraction of the screen width;
-    the vertical position is derived from `path_y_ratio` so the figure's feet
-    always land exactly on the drawn path, never floating above or sinking
-    below it.
+    the traveler's horizontal position as a fraction of the screen width; the
+    vertical position is derived from `path_y_ratio` so the figure's feet
+    always land exactly on the drawn path. `gait_offset`/`gait_speed` let each
+    individual passage start the walk cycle at a different point and pace
+    (see `Game._start_passage`), so consecutive walks don't play back in
+    lockstep even with the same `appearance`.
     """
     width, height = surface.get_size()
     ground_height = height * GROUND_HEIGHT_RATIO
@@ -297,32 +367,65 @@ def draw_traveler(
     x = width * x_ratio
     foot_y = sky_height + ground_height * path_y_ratio(x_ratio)
 
-    # A fast walk cycle: legs and arms swing opposite each other, and the
-    # whole figure bobs twice per stride (a footfall lands every half-cycle).
-    stride = math.sin(elapsed * 9)
-    bob = abs(math.cos(elapsed * 9)) * 3
+    phase = elapsed * 9 * gait_speed * appearance.stride_scale + gait_offset
+    # Quantizing the continuous sine into eighths before using it to place
+    # limbs gives the walk a slight stepped snap between poses — closer to
+    # how a low-frame-count sprite animation reads than a perfectly smooth
+    # interpolation would.
+    stride = round(math.sin(phase) * 8) / 8
+    bob = abs(math.cos(phase)) * 3 * appearance.bob_scale
 
-    color = _darken(palette.ground, 0.6)
-    hip = (x, foot_y - 30 - bob)
-    shoulder = (x, hip[1] - 16)
-    head_center = (x, shoulder[1] - 8)
+    unit = TRAVELER_PIXEL
+    leg_h, torso_h, head_h = 6 * unit, 6 * unit, 4 * unit
+    hip_y = foot_y - leg_h - bob
+    shoulder_y = hip_y - torso_h
+    head_bottom = shoulder_y
 
-    leg_reach = 11
-    pygame.draw.line(surface, color, hip, (x - stride * leg_reach, foot_y), 3)
-    pygame.draw.line(surface, color, hip, (x + stride * leg_reach, foot_y), 3)
-    pygame.draw.line(surface, color, hip, shoulder, 3)
+    leg_reach = 2.5 * unit * stride
+    _pixel_rect(surface, appearance.trousers, x - unit - leg_reach, hip_y, 2 * unit, leg_h)
+    _pixel_rect(surface, appearance.trousers, x + leg_reach - unit, hip_y, 2 * unit, leg_h)
+    # Feet as small dark blocks at the base of each leg read better than the
+    # trouser color simply stopping at the ground.
+    shoe_color = _darken(appearance.trousers, 0.4)
+    _pixel_rect(
+        surface, shoe_color, x - unit - leg_reach - unit * 0.3, foot_y - unit, 2.6 * unit, unit
+    )
+    _pixel_rect(
+        surface, shoe_color, x + leg_reach - unit - unit * 0.3, foot_y - unit, 2.6 * unit, unit
+    )
 
-    arm_reach = 8
-    hand_y = shoulder[1] + 15
-    pygame.draw.line(surface, color, shoulder, (x + stride * arm_reach, hand_y), 2)
-    pygame.draw.line(surface, color, shoulder, (x - stride * arm_reach, hand_y), 2)
+    # A satchel drawn behind the torso, on whichever side is currently the
+    # "back" arm, so it reads as slung over one shoulder rather than floating.
+    satchel_side = -1 if stride >= 0 else 1
+    _pixel_rect(
+        surface,
+        _lighten(_darken(appearance.tunic, 0.3), 0.1),
+        x + satchel_side * 2.6 * unit,
+        shoulder_y + unit,
+        2 * unit,
+        3 * unit,
+    )
 
-    pygame.draw.circle(surface, color, (round(head_center[0]), round(head_center[1])), 6)
+    _pixel_rect(surface, appearance.tunic, x - 2.5 * unit, shoulder_y, 5 * unit, torso_h)
 
-    # A small satchel slung on the traveler's back — a nod to the journey
-    # without needing an actual sprite or image asset.
-    satchel_center = (x - 6, shoulder[1] + 4)
-    pygame.draw.circle(surface, _lighten(color, 0.25), satchel_center, 4)
+    arm_reach = 2 * unit * stride
+    arm_color = appearance.skin
+    _pixel_rect(surface, arm_color, x - 3 * unit - arm_reach * 0.4, shoulder_y, unit, 4.5 * unit)
+    _pixel_rect(surface, arm_color, x + 2 * unit + arm_reach * 0.4, shoulder_y, unit, 4.5 * unit)
+
+    _pixel_rect(surface, appearance.skin, x - 2 * unit, head_bottom - head_h, 4 * unit, head_h)
+    # Hair as a cap over the top third of the head block plus a fringe row —
+    # simple, but enough to break up the skin block into a recognizable head.
+    _pixel_rect(surface, appearance.hair, x - 2 * unit, head_bottom - head_h, 4 * unit, unit * 1.4)
+    _pixel_rect(surface, appearance.hair, x - 2.2 * unit, head_bottom - head_h, unit * 0.6, head_h)
+    _pixel_rect(surface, appearance.hair, x + 1.6 * unit, head_bottom - head_h, unit * 0.6, head_h)
+
+
+def _pixel_rect(
+    surface: pygame.Surface, color: Color, left: float, top: float, w: float, h: float
+) -> None:
+    """Draw one blocky sprite rectangle, rounded to whole pixels for crisp edges."""
+    pygame.draw.rect(surface, color, pygame.Rect(round(left), round(top), round(w), round(h)))
 
 
 def _draw_clouds(

@@ -7,6 +7,7 @@ and calls back on completion. No pygame import — this is pure math.
 
 from __future__ import annotations
 
+import random
 from collections.abc import Callable
 
 EasingFunction = Callable[[float], float]
@@ -108,12 +109,19 @@ class Passage:
     loop's decision to move on) derives whatever it needs from that fraction
     itself. `skip()` lets a player who doesn't want to watch the walk jump
     straight to `done` without waiting out the remaining duration.
+
+    `gait_offset`/`gait_speed` are rolled once per passage from an optional
+    `rng` so consecutive walks don't animate in exact lockstep with each
+    other — a caller that doesn't care about that variation (e.g. a test)
+    can simply omit `rng` and get the neutral defaults (0.0, 1.0).
     """
 
-    def __init__(self, duration: float) -> None:
+    def __init__(self, duration: float, rng: random.Random | None = None) -> None:
         self.duration = duration
         self.elapsed = 0.0
         self.done = False
+        self.gait_offset = rng.uniform(0.0, 10.0) if rng else 0.0
+        self.gait_speed = rng.uniform(0.85, 1.15) if rng else 1.0
 
     def update(self, dt: float) -> None:
         """Advance the passage by `dt` seconds."""

@@ -66,6 +66,10 @@ class Game:
         # is on screen and no logic-layer state changes, just the traveler
         # silhouette walking the path. None the rest of the time.
         self._passage: Passage | None = None
+        # Rolled once per journey (and re-rolled on restart in `_restart`) so
+        # the traveler has a consistent look across every passage within one
+        # playthrough, but a different one from the last playthrough.
+        self.traveler_appearance = scenes.random_traveler_appearance(self.rng)
         # Seconds since startup, fed to scenes.draw_scene so clouds can drift
         # continuously — tracked here rather than in scenes.py, which stays a
         # pure function of its arguments with no state of its own.
@@ -131,12 +135,13 @@ class Game:
 
     def _start_passage(self) -> None:
         """Begin the text-free travel sequence shown between two stages."""
-        self._passage = Passage(PASSAGE_DURATION)
+        self._passage = Passage(PASSAGE_DURATION, rng=self.rng)
         self.buttons = []
         self.choices = []
 
     def _restart(self) -> None:
         self.state = GameState()
+        self.traveler_appearance = scenes.random_traveler_appearance(self.rng)
         self._synced_stage_index = None
         self._synced_ended = False
         self._sync_stage()
@@ -245,7 +250,15 @@ class Game:
         assert self._passage is not None
         walked = ease_in_out_quad(self._passage.progress)
         x_ratio = PASSAGE_X_START + (PASSAGE_X_END - PASSAGE_X_START) * walked
-        scenes.draw_traveler(self.screen, palette, x_ratio, self._elapsed)
+        scenes.draw_traveler(
+            self.screen,
+            palette,
+            x_ratio,
+            self._elapsed,
+            self.traveler_appearance,
+            gait_offset=self._passage.gait_offset,
+            gait_speed=self._passage.gait_speed,
+        )
         hint = self.hint_font.render("click to continue", True, ui.dim_color(palette.text))
         self.screen.blit(hint, (MARGIN, WINDOW_SIZE[1] - MARGIN))
 
