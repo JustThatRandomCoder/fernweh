@@ -12,7 +12,7 @@ from fernweh.ending import generate_ending
 from fernweh.particles import ParticleSystem, particle_kind_for_weather
 from fernweh.stages import Choice, apply_choice, choice_is_available, load_stages
 from fernweh.state import MAX_COMPANIONS, GameState
-from fernweh.tween import Tween, ease_out_quad
+from fernweh.tween import Passage, Tween, ease_in_out_quad, ease_out_quad
 
 COMPANY_FULL_REASON = "your company is already full"
 
@@ -22,6 +22,13 @@ FPS = 60
 MAX_DESATURATION_AFFLICTIONS = 4
 TRANSITION_DURATION = 0.6
 TRANSITION_START_ALPHA = 255
+# How long a between-stage passage plays before the next question appears,
+# and the horizontal span (as fractions of the window width) the traveler
+# silhouette walks across during it — kept well inside the edges so the
+# figure never clips off-screen mid-stride.
+PASSAGE_DURATION = 3.2
+PASSAGE_X_START = 0.08
+PASSAGE_X_END = 0.92
 TEXT_AREA_HEIGHT = 200
 TEXT_PANEL_PADDING = 20
 BUTTON_HEIGHT = 56
@@ -55,6 +62,10 @@ class Game:
         self._synced_ended = False
         self._previous_frame: pygame.Surface | None = None
         self._transition: Tween | None = None
+        # Set while a between-stage travel sequence is playing — no question
+        # is on screen and no logic-layer state changes, just the traveler
+        # silhouette walking the path. None the rest of the time.
+        self._passage: Passage | None = None
         # Seconds since startup, fed to scenes.draw_scene so clouds can drift
         # continuously — tracked here rather than in scenes.py, which stays a
         # pure function of its arguments with no state of its own.
@@ -72,14 +83,19 @@ class Game:
 
     def _handle_events(self) -> None:
         # Branches are checked in priority order: quitting always wins, then
-        # an open dialog swallows all input, then "H" reopens the dialog,
-        # then any key/click first skips an in-progress typewriter reveal
-        # before it's allowed to do anything else (like clicking a choice).
+        # an open dialog swallows all input, then a playing passage swallows
+        # input too (any key/click just skips straight to the next stage),
+        # then "H" reopens the dialog, then any key/click first skips an
+        # in-progress typewriter reveal before it's allowed to do anything
+        # else (like clicking a choice).
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
             elif self.dialog is not None:
                 self._handle_dialog_event(event)
+            elif self._passage is not None:
+                if event.type in (pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN):
+                    self._passage.skip()
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_h:
                 self.dialog = ui.IntroDialog()
             elif event.type == pygame.KEYDOWN and not self.typewriter.done:
@@ -105,7 +121,19 @@ class Game:
         for button, choice in zip(self.buttons, self.choices):
             if button.contains(pos):
                 apply_choice(self.state, choice, self.rng)
+                # A fatal choice ends the journey immediately — no travel
+                # sequence, the ending sync below (via the normal _update
+                # loop) takes over right away. Otherwise, the walk to the
+                # next stage plays before its question appears.
+                if not self.state.ended:
+                    self._start_passage()
                 return
+
+    def _start_passage(self) -> None:
+        """Begin the text-free travel sequence shown between two stages."""
+        self._passage = Passage(PASSAGE_DURATION)
+        self.buttons = []
+        self.choices = []
 
     def _restart(self) -> None:
         self.state = GameState()
@@ -115,6 +143,17 @@ class Game:
 
     def _update(self, dt: float) -> None:
         self._elapsed += dt
+        if self._passage is not None:
+            # Weather keeps animating through the walk (it's still the same
+            # season until the new stage loads), but nothing else about the
+            # old stage's UI does — there's no typewriter or buttons showing.
+            self._passage.update(dt)
+            if self.particle_system:
+                self.particle_system.update(dt)
+            if self._passage.done:
+                self._passage = None
+                self._sync_stage()
+            return
         self._sync_stage()
         if self.particle_system:
             self.particle_system.update(dt)
@@ -196,6 +235,20 @@ class Game:
             self.buttons.append(ui.ChoiceButton(rect, choice.text, available, reason))
             top += BUTTON_HEIGHT + BUTTON_SPACING
 
+    def _draw_passage(self, palette: scenes.Palette) -> None:
+        """Draw the traveler mid-walk, with no text panel or buttons on screen.
+
+        `ease_in_out_quad` on the walk fraction means the traveler starts and
+        ends each passage slowly (as if stepping off from and settling into
+        a stop) rather than moving at a robotic constant speed.
+        """
+        assert self._passage is not None
+        walked = ease_in_out_quad(self._passage.progress)
+        x_ratio = PASSAGE_X_START + (PASSAGE_X_END - PASSAGE_X_START) * walked
+        scenes.draw_traveler(self.screen, palette, x_ratio, self._elapsed)
+        hint = self.hint_font.render("click to continue", True, ui.dim_color(palette.text))
+        self.screen.blit(hint, (MARGIN, WINDOW_SIZE[1] - MARGIN))
+
     def _draw(self) -> None:
         # `desaturation` is the one number driving all hardship visuals: 0 at
         # full health, capping out at MAX_DESATURATION_AFFLICTIONS active
@@ -214,6 +267,11 @@ class Game:
         palette = scenes.desaturate_palette(
             scenes.palette_for_season(self.state.season), desaturation
         )
+
+        if self._passage is not None:
+            self._draw_passage(palette)
+            pygame.display.flip()
+            return
 
         # The backing panel behind the situation text grows to also cover the
         # keepsakes list once the journey has ended and that text is showing.
