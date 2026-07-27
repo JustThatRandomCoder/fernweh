@@ -41,6 +41,10 @@ RESTART_LABEL = "Begin a new journey"
 # situation text narrows to make room for it only on those stages.
 PORTRAIT_SIZE = 132
 PORTRAIT_GAP = 20
+# How far behind the leading traveler each companion walks, as a fraction of
+# window width, staggered by their position in the party — keeps a growing
+# roster from clumping into one silhouette.
+PARTY_TRAIL_GAP = 0.045
 
 
 class Game:
@@ -275,11 +279,41 @@ class Game:
 
         `ease_in_out_quad` on the walk fraction means the traveler starts and
         ends each passage slowly (as if stepping off from and settling into
-        a stop) rather than moving at a robotic constant speed.
+        a stop) rather than moving at a robotic constant speed. Every
+        companion currently in the party walks along too, trailing behind in
+        recruitment order — this is what makes a choice to invite someone
+        keep showing up on the road for the rest of the journey, not just in
+        the one passage right after they join.
         """
         assert self._passage is not None
         walked = ease_in_out_quad(self._passage.progress)
         x_ratio = PASSAGE_X_START + (PASSAGE_X_END - PASSAGE_X_START) * walked
+
+        # Companions are drawn furthest-back first, the leading traveler
+        # last, so nearer figures correctly overlap those trailing behind
+        # them rather than the other way around. `trailing` counts from 1
+        # (the most recently recruited companion, walking right behind the
+        # traveler) up to the party size (the very first companion, walking
+        # furthest back) — drawn in descending `trailing` order.
+        party_size = len(self.state.companions)
+        for trailing in range(party_size, 0, -1):
+            companion = self.state.companions[party_size - trailing]
+            companion_x = x_ratio - trailing * PARTY_TRAIL_GAP
+            if companion_x < 0.0:
+                continue
+            appearance = self._companion_appearances.get(
+                companion.id, scenes.appearance_for_seed(companion.id)
+            )
+            scenes.draw_traveler(
+                self.screen,
+                palette,
+                companion_x,
+                self._elapsed,
+                appearance,
+                gait_offset=self._passage.gait_offset + trailing * 1.3,
+                gait_speed=self._passage.gait_speed,
+            )
+
         scenes.draw_traveler(
             self.screen,
             palette,
