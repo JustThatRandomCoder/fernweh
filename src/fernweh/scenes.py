@@ -126,6 +126,29 @@ TREES = (
     (0.925, 0.85, 2.7),
     (0.975, 0.62, 0.8),
 )
+# The path is the journey itself made visible: a dirt track winding through
+# the foreground, low in the ground band (near the viewer) so it reads as
+# the road underfoot rather than a distant trail. `path_y_ratio` is a pure
+# function of x so `game.py` can reuse the exact same curve to walk the
+# traveler silhouette along it during a passage, instead of the two drifting
+# out of sync if the curve were duplicated.
+PATH_BASELINE_RATIO = 0.82
+PATH_AMPLITUDE_RATIO = 0.16
+PATH_WAVE_COUNT = 1.6
+PATH_PHASE = 1.1
+PATH_WIDTH_RATIO = 0.05
+
+
+def path_y_ratio(x_ratio: float) -> float:
+    """Return the path's vertical position within the ground band at a given x fraction.
+
+    The result is a fraction of `ground_height` measured from the sky/ground
+    line — the same convention `_draw_hill` uses — so callers just multiply
+    by `ground_height` and add `sky_height` to get a screen y.
+    """
+    return PATH_BASELINE_RATIO + PATH_AMPLITUDE_RATIO * math.sin(
+        PATH_PHASE + PATH_WAVE_COUNT * math.pi * x_ratio
+    )
 
 
 def palette_for_season(season: str) -> Palette:
@@ -211,6 +234,11 @@ def draw_scene(
             width=width,
             height=height,
         )
+
+    # The path is drawn on top of the ground/hills but underneath the trees,
+    # so trunks planted near its edges still occlude it the way real
+    # roadside trees would.
+    _draw_path(surface, palette, width, sky_height, ground_height)
 
     # Trees stand on top of everything else in the scene — the nearest layer,
     # rooted in the ground band.
@@ -300,6 +328,35 @@ def _draw_hill(
     # alone nearly disappears. `aalines` (vs. `lines`) keeps it a soft edge
     # rather than a hard, technical-looking outline.
     pygame.draw.aalines(surface, _darken(color, 0.14), False, crest_points)
+
+
+def _draw_path(
+    surface: pygame.Surface, palette: Palette, width: int, sky_height: int, ground_height: float
+) -> None:
+    """Draw the winding dirt path as a ribbon following `path_y_ratio`.
+
+    Built the same way as a hill silhouette (a strip of sampled points turned
+    into a filled polygon), but as a bounded-width ribbon rather than a
+    fill-to-the-bottom shape, since the path needs a far *and* near edge.
+    """
+    steps = 40
+    path_color = _lighten(palette.ground, 0.22)
+    half_width = ground_height * PATH_WIDTH_RATIO / 2
+    top_edge = []
+    bottom_edge = []
+    for i in range(steps + 1):
+        x = width * i / steps
+        center_y = sky_height + ground_height * path_y_ratio(i / steps)
+        top_edge.append((x, center_y - half_width))
+        bottom_edge.append((x, center_y + half_width))
+    pygame.draw.polygon(surface, path_color, [*top_edge, *reversed(bottom_edge)])
+    # A darker rut line down the center reads as wear from travel, breaking
+    # up what would otherwise be a flat band of a single color.
+    center_line = [
+        (x, sky_height + ground_height * path_y_ratio(i / steps))
+        for i, x in ((i, width * i / steps) for i in range(steps + 1))
+    ]
+    pygame.draw.aalines(surface, _darken(path_color, 0.12), False, center_line)
 
 
 def _draw_trees(
