@@ -10,7 +10,7 @@ from fernweh import scenes, ui
 from fernweh.afflictions import hardship_level
 from fernweh.ending import generate_ending
 from fernweh.particles import ParticleSystem, particle_kind_for_weather
-from fernweh.stages import Choice, apply_choice, choice_is_available, load_stages
+from fernweh.stages import Choice, SceneCharacter, apply_choice, choice_is_available, load_stages
 from fernweh.state import MAX_COMPANIONS, GameState
 from fernweh.tween import Passage, Tween, ease_in_out_quad, ease_out_quad
 
@@ -36,6 +36,11 @@ BUTTON_SPACING = 20
 BUTTON_TOP_GAP = 28
 KEEPSAKES_AREA_HEIGHT = 120
 RESTART_LABEL = "Begin a new journey"
+# The close-up portrait sits inset in the top-right corner of the text panel,
+# for stages whose situation describes a specific NPC — the wrapped
+# situation text narrows to make room for it only on those stages.
+PORTRAIT_SIZE = 132
+PORTRAIT_GAP = 20
 
 
 class Game:
@@ -70,6 +75,15 @@ class Game:
         # the traveler has a consistent look across every passage within one
         # playthrough, but a different one from the last playthrough.
         self.traveler_appearance = scenes.random_person_appearance(self.rng)
+        # The current stage's NPC portrait, if its scene describes one — a
+        # (SceneCharacter, PersonAppearance) pair rebuilt each stage sync, or
+        # None on stages with an empty landscape (most of them).
+        self._stage_character: tuple[SceneCharacter, scenes.PersonAppearance] | None = None
+        # Every companion's appearance, keyed by id, learned the moment their
+        # recruiting stage's portrait is first shown — so a companion who
+        # joins keeps looking exactly like their portrait once they start
+        # walking with the traveler in later passages (see `_start_passage`).
+        self._companion_appearances: dict[str, scenes.PersonAppearance] = {}
         # Seconds since startup, fed to scenes.draw_scene so clouds can drift
         # continuously — tracked here rather than in scenes.py, which stays a
         # pure function of its arguments with no state of its own.
@@ -197,6 +211,21 @@ class Game:
         self.typewriter.reset(stage.situation)
         self._build_buttons(stage.choices)
 
+        if stage.character is None:
+            self._stage_character = None
+        else:
+            appearance = scenes.person_appearance_from_names(
+                stage.character.skin, stage.character.hair, stage.character.tunic
+            )
+            self._stage_character = (stage.character, appearance)
+            # If this stage's NPC is also recruitable this turn, remember
+            # their exact look now — so if the player invites them, the
+            # companion who starts walking in passages afterward is visibly
+            # the same person as the portrait that was just on screen.
+            for choice in stage.choices:
+                if choice.companion is not None:
+                    self._companion_appearances[choice.companion["id"]] = appearance
+
     def _sync_ending(self) -> None:
         # A parallel sync path to _sync_stage: reaching the ending doesn't
         # necessarily mean stage_index changed (a mid-stage failure ends the
@@ -205,6 +234,7 @@ class Game:
         if self._synced_ended:
             return
         self._synced_ended = True
+        self._stage_character = None
         self._previous_frame = self.screen.copy()
         self._transition = Tween(
             TRANSITION_START_ALPHA, 0, TRANSITION_DURATION, easing=ease_out_quad
@@ -305,10 +335,27 @@ class Game:
         # let their motion bleed through and animate inside the text card —
         # the same ghosting problem the intro dialog's card already fixed.
         ui.draw_panel(self.screen, text_panel_rect, palette.panel, ui.dim_color(palette.panel))
-        text_rect = pygame.Rect(MARGIN, MARGIN, WINDOW_SIZE[0] - 2 * MARGIN, TEXT_AREA_HEIGHT)
+        text_width = WINDOW_SIZE[0] - 2 * MARGIN
+        if self._stage_character is not None:
+            text_width -= PORTRAIT_SIZE + PORTRAIT_GAP
+        text_rect = pygame.Rect(MARGIN, MARGIN, text_width, TEXT_AREA_HEIGHT)
         ui.draw_wrapped_text(
             self.screen, self.typewriter.visible_text(), self.font, palette.text, text_rect
         )
+        if self._stage_character is not None:
+            character, appearance = self._stage_character
+            portrait_rect = pygame.Rect(
+                WINDOW_SIZE[0] - MARGIN - PORTRAIT_SIZE, MARGIN, PORTRAIT_SIZE, PORTRAIT_SIZE
+            )
+            scenes.draw_portrait(
+                self.screen,
+                portrait_rect,
+                palette,
+                appearance,
+                character.pose,
+                self._elapsed,
+                prop=character.prop,
+            )
 
         if self.typewriter.done and self.state.ended:
             keepsakes_rect = pygame.Rect(
