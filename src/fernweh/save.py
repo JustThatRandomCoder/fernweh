@@ -39,9 +39,26 @@ class SaveSummary:
     ended: bool
     end_reason: str | None
 
+    def describe(self) -> str:
+        """A one-line label for this save, for the continue-journey menu."""
+        party = f" · with {', '.join(self.companion_names)}" if self.companion_names else ""
+        season_label = self.season.capitalize()
+        if self.ended:
+            outcome = (
+                "reached the end" if self.end_reason == "completed" else "the road ended early"
+            )
+            return f"Revisit — {outcome}, {season_label}{party}"
+        # 1-based "day" reads more naturally to a player than a 0-based index.
+        return f"Continue — {season_label}, day {self.stage_index + 1}{party}"
+
 
 def _save_path(save_id: str) -> Path:
     return SAVES_DIR / f"{save_id}.json"
+
+
+def now_iso() -> str:
+    """The current UTC time in the same ISO format every timestamp in a save uses."""
+    return datetime.now(timezone.utc).isoformat()
 
 
 def new_save_id() -> str:
@@ -69,7 +86,7 @@ def save_game(
     save file behind. `os.replace` is atomic on both POSIX and Windows.
     """
     SAVES_DIR.mkdir(parents=True, exist_ok=True)
-    now = datetime.now(timezone.utc).isoformat()
+    now = now_iso()
     payload = {
         "id": save_id,
         "created_at": created_at or now,
@@ -84,15 +101,24 @@ def save_game(
     os.replace(tmp_path, target)
 
 
-def load_game(
-    save_id: str,
-) -> tuple[GameState, dict[str, Any], dict[str, dict[str, Any]]]:
+@dataclass(frozen=True)
+class LoadedGame:
+    """Everything needed to resume a playthrough exactly where it was left."""
+
+    state: GameState
+    traveler_appearance: dict[str, Any]
+    companion_appearances: dict[str, dict[str, Any]]
+    created_at: str
+
+
+def load_game(save_id: str) -> LoadedGame:
     """Reconstruct a `GameState` and its cosmetic appearances from a saved file."""
     payload = json.loads(_save_path(save_id).read_text())
-    return (
-        _state_from_dict(payload["state"]),
-        payload["traveler_appearance"],
-        payload["companion_appearances"],
+    return LoadedGame(
+        state=_state_from_dict(payload["state"]),
+        traveler_appearance=payload["traveler_appearance"],
+        companion_appearances=payload["companion_appearances"],
+        created_at=payload["created_at"],
     )
 
 

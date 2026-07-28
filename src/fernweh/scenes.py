@@ -392,6 +392,36 @@ def person_appearance_from_names(skin: str, hair: str, tunic: str) -> PersonAppe
     )
 
 
+def person_appearance_to_dict(appearance: PersonAppearance) -> dict[str, object]:
+    """Flatten a `PersonAppearance` to plain JSON-safe types, for `save.py` to persist.
+
+    `save.py` stays pygame-free (it can't import this module), so appearances
+    cross that boundary as plain dicts of lists/floats rather than as
+    `PersonAppearance` objects — this is the one place that knows how to go
+    both directions (see `person_appearance_from_dict` below).
+    """
+    return {
+        "skin": list(appearance.skin),
+        "hair": list(appearance.hair),
+        "tunic": list(appearance.tunic),
+        "trousers": list(appearance.trousers),
+        "bob_scale": appearance.bob_scale,
+        "stride_scale": appearance.stride_scale,
+    }
+
+
+def person_appearance_from_dict(data: dict[str, object]) -> PersonAppearance:
+    """Rebuild a `PersonAppearance` from the dict shape `person_appearance_to_dict` writes."""
+    return PersonAppearance(
+        skin=tuple(data["skin"]),
+        hair=tuple(data["hair"]),
+        tunic=tuple(data["tunic"]),
+        trousers=tuple(data["trousers"]),
+        bob_scale=data["bob_scale"],
+        stride_scale=data["stride_scale"],
+    )
+
+
 # The traveler is built from chunky rectangles at this unit size rather than
 # thin lines — a small "pixel art" grid of blocks reads as a human figure the
 # way a retro sprite does, instead of a wireframe stick figure.

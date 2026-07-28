@@ -6,7 +6,7 @@ import random
 
 import pygame
 
-from fernweh import scenes, ui
+from fernweh import save, scenes, ui
 from fernweh.afflictions import hardship_level
 from fernweh.ending import generate_ending
 from fernweh.particles import ParticleSystem, particle_kind_for_weather
@@ -45,6 +45,11 @@ PORTRAIT_GAP = 20
 # window width, staggered by their position in the party — keeps a growing
 # roster from clumping into one silhouette.
 PARTY_TRAIL_GAP = 0.045
+# The start menu shows at most this many of the most-recently-updated saves,
+# so a long play history never pushes the "begin a new journey" button (or
+# the oldest, least-relevant saves) off the bottom of the window.
+MAX_VISIBLE_SAVES = 5
+MENU_TOP = 150
 
 
 class Game:
@@ -59,13 +64,22 @@ class Game:
         self.hint_font = pygame.font.Font(None, 20)
         self.rng = random.Random()
         self.stages = load_stages()
+        # A placeholder journey exists from the very first frame (so the menu
+        # has a season/scene to render behind it), but it isn't "the" game
+        # until `_start_new_game`/`_continue_game` replaces it — no autosave
+        # happens until then.
         self.state = GameState()
+        self.save_id = ""
+        self._save_created_at: str | None = None
         self.running = True
         self.particle_system: ParticleSystem | None = None
         self.typewriter = ui.TypewriterText("")
         self.choices: list[Choice] = []
         self.buttons: list[ui.ChoiceButton] = []
-        self.dialog: ui.IntroDialog | None = ui.IntroDialog()
+        # No intro dialog until a game actually starts — the start menu comes
+        # first, and only "Begin a new journey" shows the dialog afterward;
+        # continuing a save skips straight into play.
+        self.dialog: ui.IntroDialog | None = None
         self.keepsakes: list[str] = []
         self._synced_stage_index: int | None = None
         self._synced_ended = False
@@ -92,7 +106,12 @@ class Game:
         # continuously — tracked here rather than in scenes.py, which stays a
         # pure function of its arguments with no state of its own.
         self._elapsed = 0.0
-        self._sync_stage()
+        # Shown first, before any stage: lets the player start fresh or pick
+        # up a previous journey instead of always dropping them at stage 0.
+        self.menu_active = True
+        self.menu_saves: list[save.SaveSummary] = []
+        self.menu_buttons: list[ui.ChoiceButton] = []
+        self._build_menu()
 
     def run(self) -> None:
         """Run the main loop until the window is closed."""
@@ -105,6 +124,7 @@ class Game:
 
     def _handle_events(self) -> None:
         # Branches are checked in priority order: quitting always wins, then
+        # the start menu swallows all input until a journey is chosen, then
         # an open dialog swallows all input, then a playing passage swallows
         # input too (any key/click just skips straight to the next stage),
         # then "H" reopens the dialog, then any key/click first skips an
@@ -113,6 +133,9 @@ class Game:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
+            elif self.menu_active:
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    self._handle_menu_click(event.pos)
             elif self.dialog is not None:
                 self._handle_dialog_event(event)
             elif self._passage is not None:
@@ -135,6 +158,28 @@ class Game:
         if self.dialog.done:
             self.dialog = None
 
+    def _handle_menu_click(self, pos: tuple[int, int]) -> None:
+        for index, button in enumerate(self.menu_buttons):
+            if not button.contains(pos):
+                continue
+            if index == 0:
+                self._start_new_game()
+            else:
+                self._continue_game(self.menu_saves[index - 1].id)
+            return
+
+    def _build_menu(self) -> None:
+        """Lay out the start menu: "begin a new journey" plus recent saves."""
+        self.menu_saves = save.list_saves()[:MAX_VISIBLE_SAVES]
+        self.menu_buttons = []
+        button_width = WINDOW_SIZE[0] - 2 * MARGIN
+        top = MENU_TOP
+        labels = ["Begin a new journey", *(s.describe() for s in self.menu_saves)]
+        for label in labels:
+            rect = pygame.Rect(MARGIN, top, button_width, BUTTON_HEIGHT)
+            self.menu_buttons.append(ui.ChoiceButton(rect, label))
+            top += BUTTON_HEIGHT + BUTTON_SPACING
+
     def _handle_choice_click(self, pos: tuple[int, int]) -> None:
         if self.state.ended:
             if self.buttons and self.buttons[0].contains(pos):
@@ -143,6 +188,11 @@ class Game:
         for button, choice in zip(self.buttons, self.choices):
             if button.contains(pos):
                 apply_choice(self.state, choice, self.rng)
+                # Every choice is saved to disk the instant it resolves, not
+                # batched or delayed — so killing the process (closing the
+                # terminal, Ctrl+C) a moment later, even mid-passage, never
+                # loses the choice that was just made.
+                self._autosave()
                 # A fatal choice ends the journey immediately — no travel
                 # sequence, the ending sync below (via the normal _update
                 # loop) takes over right away. Otherwise, the walk to the
@@ -151,6 +201,60 @@ class Game:
                     self._start_passage()
                 return
 
+    def _autosave(self) -> None:
+        """Persist the current playthrough to `self.save_id` on disk."""
+        companion_appearances = {
+            companion.id: scenes.person_appearance_to_dict(
+                self._companion_appearances.get(
+                    companion.id, scenes.appearance_for_seed(companion.id)
+                )
+            )
+            for companion in self.state.companions
+        }
+        save.save_game(
+            self.save_id,
+            self.state,
+            scenes.person_appearance_to_dict(self.traveler_appearance),
+            companion_appearances,
+            created_at=self._save_created_at,
+        )
+
+    def _start_new_game(self) -> None:
+        """Begin a fresh journey under a brand-new save id."""
+        self.save_id = save.new_save_id()
+        self._save_created_at = save.now_iso()
+        self.state = GameState()
+        self.traveler_appearance = scenes.random_person_appearance(self.rng)
+        self._companion_appearances = {}
+        self._stage_character = None
+        self._synced_stage_index = None
+        self._synced_ended = False
+        self.menu_active = False
+        self.dialog = ui.IntroDialog()
+        self._sync_stage()
+
+    def _continue_game(self, save_id: str) -> None:
+        """Resume a previously saved journey exactly where it was left off."""
+        loaded = save.load_game(save_id)
+        self.save_id = save_id
+        self._save_created_at = loaded.created_at
+        self.state = loaded.state
+        self.traveler_appearance = scenes.person_appearance_from_dict(loaded.traveler_appearance)
+        self._companion_appearances = {
+            companion_id: scenes.person_appearance_from_dict(data)
+            for companion_id, data in loaded.companion_appearances.items()
+        }
+        self._stage_character = None
+        self._synced_stage_index = None
+        self._synced_ended = False
+        self.menu_active = False
+        # A returning player already knows how to play — no intro dialog,
+        # and the situation/ending text they're resuming into shows fully
+        # revealed immediately rather than replaying the typewriter.
+        self.dialog = None
+        self._sync_stage()
+        self.typewriter.skip()
+
     def _start_passage(self) -> None:
         """Begin the text-free travel sequence shown between two stages."""
         self._passage = Passage(PASSAGE_DURATION, rng=self.rng)
@@ -158,14 +262,19 @@ class Game:
         self.choices = []
 
     def _restart(self) -> None:
-        self.state = GameState()
-        self.traveler_appearance = scenes.random_person_appearance(self.rng)
-        self._synced_stage_index = None
-        self._synced_ended = False
-        self._sync_stage()
+        # A restart from the ending screen is a new journey under a new save
+        # id — it doesn't overwrite the finished one, which stays in the
+        # start menu's list as something the player can still revisit.
+        self._start_new_game()
 
     def _update(self, dt: float) -> None:
         self._elapsed += dt
+        if self.menu_active:
+            mouse_pos = pygame.mouse.get_pos()
+            mouse_down = pygame.mouse.get_pressed()[0]
+            for button in self.menu_buttons:
+                button.update(dt, mouse_pos, mouse_down)
+            return
         if self._passage is not None:
             # Weather keeps animating through the walk (it's still the same
             # season until the new stage loads), but nothing else about the
@@ -274,6 +383,20 @@ class Game:
             self.buttons.append(ui.ChoiceButton(rect, choice.text, available, reason))
             top += BUTTON_HEIGHT + BUTTON_SPACING
 
+    def _draw_menu(self, palette: scenes.Palette) -> None:
+        """Draw the start menu: title, then "begin a new journey" plus recent saves."""
+        title = self.font.render("Fernweh", True, palette.text)
+        self.screen.blit(title, title.get_rect(midtop=(WINDOW_SIZE[0] // 2, 56)))
+        subtitle_text = (
+            "choose a journey to continue, or begin a new one"
+            if self.menu_saves
+            else "a walk from spring to winter"
+        )
+        subtitle = self.hint_font.render(subtitle_text, True, ui.dim_color(palette.text))
+        self.screen.blit(subtitle, subtitle.get_rect(midtop=(WINDOW_SIZE[0] // 2, 96)))
+        for button in self.menu_buttons:
+            button.draw(self.screen, self.font, palette)
+
     def _draw_passage(self, palette: scenes.Palette) -> None:
         """Draw the traveler mid-walk, with no text panel or buttons on screen.
 
@@ -344,6 +467,11 @@ class Game:
         palette = scenes.desaturate_palette(
             scenes.palette_for_season(self.state.season), desaturation
         )
+
+        if self.menu_active:
+            self._draw_menu(palette)
+            pygame.display.flip()
+            return
 
         if self._passage is not None:
             self._draw_passage(palette)
