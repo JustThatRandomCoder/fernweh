@@ -28,16 +28,17 @@ def test_save_and_load_round_trips_state() -> None:
     original = _sample_state()
     save.save_game(save_id, original, {"skin": [1, 2, 3]}, {"mira": {"skin": [4, 5, 6]}})
 
-    loaded, traveler_appearance, companion_appearances = save.load_game(save_id)
+    loaded = save.load_game(save_id)
 
-    assert loaded.energy == original.energy
-    assert loaded.supplies == original.supplies
-    assert loaded.stage_index == original.stage_index
-    assert loaded.companions == original.companions
-    assert loaded.memories == original.memories
-    assert loaded.afflictions == original.afflictions
-    assert traveler_appearance == {"skin": [1, 2, 3]}
-    assert companion_appearances == {"mira": {"skin": [4, 5, 6]}}
+    assert loaded.state.energy == original.energy
+    assert loaded.state.supplies == original.supplies
+    assert loaded.state.stage_index == original.stage_index
+    assert loaded.state.companions == original.companions
+    assert loaded.state.memories == original.memories
+    assert loaded.state.afflictions == original.afflictions
+    assert loaded.traveler_appearance == {"skin": [1, 2, 3]}
+    assert loaded.companion_appearances == {"mira": {"skin": [4, 5, 6]}}
+    assert loaded.created_at
 
 
 def test_list_saves_is_empty_when_no_saves_dir_exists() -> None:
