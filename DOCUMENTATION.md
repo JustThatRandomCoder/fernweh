@@ -401,6 +401,48 @@ falls back to `scenes.appearance_for_seed(companion.id)`, a deterministic-but-un
 keyed off their id, so nothing crashes and they still look consistent across passages — just
 without the guaranteed portrait match.
 
+## Save/Continue (`save.py`)
+
+**No pygame import, by the same rule as `state.py`.** `save.py` turns a `GameState` (plus the
+cosmetic traveler/companion appearance info `game.py` tracks) into JSON on disk and back. It
+deliberately doesn't know about `scenes.PersonAppearance` — appearances cross the save
+boundary as plain dicts of RGB lists and floats (`scenes.person_appearance_to_dict`/
+`_from_dict` do the conversion on the `game.py` side), so this module never needs to import
+the rendering layer just to save or load a look. Saves live in `saves/` at the repo root,
+which `.gitignore` excludes entirely — a player's progress is local runtime data, not
+version-controlled content, the same reasoning `.venv/` already gets.
+
+**Atomic writes.** `save_game` writes to a `.json.tmp` file and `os.replace`s it into place
+rather than writing the target file directly. This matters specifically because of *when*
+saves happen: `Game._autosave` fires synchronously right after every single choice resolves,
+including the moment just before a player might close the terminal or hit Ctrl+C. A write
+interrupted mid-flight by that kill must never leave a half-written, corrupt save behind —
+`os.replace` is atomic on both POSIX and Windows, so the on-disk file is always either the old
+complete save or the new complete save, never something in between.
+
+**Why autosave lives where it does.** `Game._handle_choice_click` calls `_autosave()`
+immediately after `apply_choice(...)`, before deciding whether to start a passage or let the
+ending sync take over. `apply_choice` already mutates `GameState` (and advances
+`stage_index`) synchronously and completely by the time it returns — nothing about a passage
+animation playing afterward changes any logic-layer state, it's pure rendering. So the choice
+that was just made is durably on disk before the passage even begins, which is what makes "the
+process can be killed at any point after a choice, even mid-animation" a safe operation rather
+than a race.
+
+**The start menu.** `Game.__init__` no longer goes straight into stage 0: `self.menu_active`
+gates the loop into a small menu screen first (`_build_menu`/`_draw_menu`/`_handle_menu_click`),
+listing "Begin a new journey" plus up to `MAX_VISIBLE_SAVES` (5) of `save.list_saves()`'s most
+recently updated saves, each labeled by `SaveSummary.describe()` (season, day number, current
+party — or, for a finished journey, whether it was reached or cut short). `_start_new_game`
+rolls a fresh `save.new_save_id()` and traveler look and shows the intro dialog, same as a
+first-ever launch always did; `_continue_game` reconstructs `GameState` and both appearance
+maps from `save.load_game`, skips the intro dialog (a returning player doesn't need it again),
+and calls `self.typewriter.skip()` right after syncing so the situation or ending text they're
+resuming into is shown fully revealed rather than replaying the reveal animation. Restarting
+from the ending screen (`_restart`) now calls `_start_new_game()` too, rather than duplicating
+its own reset logic — a restart is a new journey under a new save id, and the finished one it
+came from stays in the menu's list as something still revisitable, not overwritten.
+
 ## Data Format
 
 Stages live in `content/stages.json` as a single `{"stages": [...]}` array, one entry per
