@@ -2,6 +2,7 @@ GAME-PLAN.md
 GAME-DESIGN.md
 
 .venv/
+saves/
 __pycache__/
 *.pyc
 .pytest_cache/
