@@ -110,7 +110,8 @@
       "season": "spring",
       "scene": {
         "description": "An old footbridge over a gorge, planks silvered and loose in places.",
-        "weather": "overcast"
+        "weather": "overcast",
+        "landmark": "bridge"
       },
       "situation": "The bridge groans under its own weight before you've even set foot on it. A longer path winds down and around the gorge instead.",
       "choices": [

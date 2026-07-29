@@ -1001,13 +1001,77 @@ def _draw_bare_branches(
         pygame.draw.line(surface, color, top, end, max(1, round(2 * scale)))
 
 
+def _draw_bridge(
+    surface: pygame.Surface,
+    palette: Palette,
+    width: int,
+    height: int,
+    ground_height: float,
+    elapsed: float,
+) -> None:
+    """Draw an old wooden footbridge over a gorge, spanning the scene at path level.
+
+    The deck sags slightly in the middle (an old rope-and-plank bridge, not a
+    rigid span) and groans with a small, slow vertical sway keyed off `elapsed`
+    — the "groans under its own weight" the situation names. A darker gorge
+    shadow drops away beneath the deck to read as the chasm being crossed.
+    """
+    sky_height = height - ground_height
+    x1 = width * 0.2
+    x2 = width * 0.8
+    span = x2 - x1
+    # The deck sits low in the ground band, at roughly the traveler's path
+    # level, so a figure crossing during a passage reads as being on it.
+    base_y = sky_height + ground_height * 0.6
+    sway = math.sin(elapsed * 1.4) * 2.0
+    sag = ground_height * 0.07
+
+    def deck_y(x: float) -> float:
+        # A parabola that is 0 at both ends and 1 at the center makes the deck
+        # dip in the middle; the groan sway is scaled by the same curve so the
+        # bridge flexes most where it is least supported.
+        t = (x - x1) / span
+        dip = 4 * t * (1 - t)
+        return base_y + sag * dip + sway * dip
+
+    samples = [(x1 + span * i / 24, deck_y(x1 + span * i / 24)) for i in range(25)]
+
+    # 1. The gorge: a dark chasm dropping from just under the deck to the
+    # bottom of the scene, so the bridge reads as spanning a real gap.
+    gorge_color = _darken(palette.ground, 0.62)
+    gorge = [*samples, (x2, height), (x1, height)]
+    pygame.draw.polygon(surface, gorge_color, gorge)
+
+    wood = _darken(palette.ground, 0.5)
+    plank = _lighten(wood, 0.28)  # silvered, weathered planks catching the light
+    rope = _darken(wood, 0.25)
+
+    # 2. Two suspension ropes sweeping from post to post, one at deck level and
+    # one raised as a handrail, both following the same sagging curve.
+    handrail = [(x, y - ground_height * 0.16) for x, y in samples]
+    pygame.draw.lines(surface, rope, False, handrail, max(2, round(width * 0.004)))
+    pygame.draw.lines(surface, rope, False, samples, max(2, round(width * 0.004)))
+
+    # 3. The deck planks: short vertical boards laid across the span, a couple
+    # tilted to read as "loose in places". Vertical posts every few planks tie
+    # the handrail down to the deck.
+    plank_w = span / 24
+    for i, (x, y) in enumerate(samples):
+        tilt = 2 if i % 5 == 2 else 0  # an occasional plank sitting proud
+        _pixel_rect(surface, plank, x - plank_w / 2, y - 3 - tilt, plank_w * 0.9, 6)
+        if i % 4 == 0:
+            post_top = y - ground_height * 0.16
+            _pixel_rect(surface, wood, x - 1, post_top, max(2, round(width * 0.004)), y - post_top)
+
+
 # Maps each landmark name to its draw routine. Every drawer takes the same
 # (surface, palette, width, height, ground_height, elapsed) signature so
-# `draw_landmark` can call any of them uniformly. Populated below as each
-# landmark's drawing function is defined; a name in this dict must also be in
-# `stages.VALID_LANDMARKS`, and vice versa once every landmark has a drawer.
-LandmarkDrawer = "Callable[[pygame.Surface, Palette, int, int, float, float], None]"
-_LANDMARK_DRAWERS: dict[str, object] = {}
+# `draw_landmark` can call any of them uniformly. A name here must also be in
+# `stages.VALID_LANDMARKS`; names validated in content but not yet given a
+# drawer are simply skipped by `draw_landmark`.
+_LANDMARK_DRAWERS: dict[str, object] = {
+    "bridge": _draw_bridge,
+}
 
 
 def _lerp_color(a: Color, b: Color, t: float) -> Color:
