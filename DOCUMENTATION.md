@@ -408,6 +408,38 @@ with no NPC. `_sync_ending` explicitly clears `_stage_character` to `None`, sinc
 ending doesn't necessarily go through `_sync_stage` (a mid-stage failure can end the game without
 one) and a stale portrait would otherwise persist onto the ending screen.
 
+**Scene landmarks (`scenes.draw_landmark`, `stages.VALID_LANDMARKS`).** Where the portrait
+system draws the *person* a situation names, the landmark system draws the *place* it names, so
+the picture matches the words: the footbridge over the gorge, the shallow stream, the lone tree
+on the plain, the market stalls, the dry riverbed, the orchard, the woodcutter's cabin, the
+healer's stone house, the half-collapsed shelter, the buried supply depot, the frozen lake.
+A stage's `scene` may declare an optional `landmark` string; `stages._parse_landmark` validates
+it against `VALID_LANDMARKS` and stores it on `Stage.landmark` (`None` on the many stages the
+generic season landscape already conveys — a trailhead, a harvested field, a forest track).
+This is the same logic/rendering split the character vocabulary uses: the pure `stages.py` only
+knows the *name*, and `scenes.py` owns a registry, `_LANDMARK_DRAWERS`, mapping each name to a
+small draw routine of uniform `(surface, palette, width, height, ground_height, elapsed)`
+signature — adding a landmark is one function plus one registry entry, and `draw_scene`/the game
+loop never change. `draw_scene` takes an optional `landmark` and, when set, calls `draw_landmark`
+after the path but before the foreground trees, so a landmark sits in the mid-ground (trees
+nearest the viewer still overlap it) and under the edge vignette like everything else. Each
+drawer is procedural pygame primitives keyed off the season `palette` (no art assets, same as
+the rest of the scene) and animated where the text implies motion: the bridge deck groans on a
+slow vertical sway, the stream and the riverbed's last trickle shimmer, the cabin's chimney
+puffs rise and fade on a loop, the healer's lantern pulses, the market awnings flap, the frozen
+lake's sheen drifts. The four buildings (cabin, stone house, shelter, depot) share one
+`_draw_building` helper tuned by keyword flags (`ruined`, `chimney_smoke`, `lantern`, `scale`,
+`wall_color`) rather than four near-identical copies.
+
+`Game` tracks two landmark slots so the feature persists correctly across a passage. `_stage_landmark`
+is set from `stage.landmark` each `_sync_stage` and cleared in `_sync_ending` (the journey's end
+is an open field, not any one stage's landmark). `_passage_landmark` captures `_stage_landmark`
+when `_start_passage` fires, so the walk or rest sequence keeps the just-left stage's scenery on
+screen — you actually watch the traveler cross the bridge or wade the stream, rather than the
+landmark blanking the instant the choice resolves. `_draw` computes which of the two (or `None`,
+on the menu) to hand `draw_scene` in one place, keeping the single background-draw call the only
+place the scene is rendered.
+
 **A companion's portrait is who shows up on the road.** The four stages that offer a
 companion (Mira, Sable, Talia, Emet, Wren — five characters, one is declined depending on
 choices) are exactly the stages that declare a `character` block, and `_sync_stage` uses that

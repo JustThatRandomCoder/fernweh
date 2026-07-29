@@ -41,7 +41,6 @@ VALID_PROPS = frozenset({"well"})
 # Absent on stages whose scenery the generic season landscape already conveys.
 VALID_LANDMARKS = frozenset(
     {
-        "well",
         "stream",
         "bridge",
         "lone_tree",
