@@ -45,6 +45,16 @@ PORTRAIT_GAP = 20
 # window width, staggered by their position in the party — keeps a growing
 # roster from clumping into one silhouette.
 PARTY_TRAIL_GAP = 0.045
+# A rest passage seats the whole party in a row on a bench instead of walking
+# them. `REST_SEAT_SPACING` is the horizontal gap between neighbours (as a
+# fraction of window width), `REST_SEAT_Y_RATIO` the height of the bench seat
+# (as a fraction of window height, tuned so seated feet land on the path), and
+# the width fractions bound the bench so a solo traveler still gets a real
+# bench and a full party still fits on one.
+REST_SEAT_SPACING = 0.06
+REST_SEAT_Y_RATIO = 0.9
+REST_BENCH_MIN_WIDTH_RATIO = 0.16
+REST_BENCH_PADDING_RATIO = 0.05
 # The start menu shows at most this many of the most-recently-updated saves,
 # so a long play history never pushes the "begin a new journey" button (or
 # the oldest, least-relevant saves) off the bottom of the window.
@@ -89,6 +99,11 @@ class Game:
         # is on screen and no logic-layer state changes, just the traveler
         # silhouette walking the path. None the rest of the time.
         self._passage: Passage | None = None
+        # Whether the current passage is a "rest" sequence (the party seated on
+        # a bench) rather than the usual walk. Set from the chosen option's
+        # `rest` flag when the passage starts; only meaningful while
+        # `self._passage` is not None.
+        self._passage_resting = False
         # Rolled once per journey (and re-rolled on restart in `_restart`) so
         # the traveler has a consistent look across every passage within one
         # playthrough, but a different one from the last playthrough.
@@ -198,7 +213,7 @@ class Game:
                 # loop) takes over right away. Otherwise, the walk to the
                 # next stage plays before its question appears.
                 if not self.state.ended:
-                    self._start_passage()
+                    self._start_passage(resting=choice.rest)
                 return
 
     def _autosave(self) -> None:
@@ -255,9 +270,16 @@ class Game:
         self._sync_stage()
         self.typewriter.skip()
 
-    def _start_passage(self) -> None:
-        """Begin the text-free travel sequence shown between two stages."""
+    def _start_passage(self, resting: bool = False) -> None:
+        """Begin the text-free travel sequence shown between two stages.
+
+        `resting` picks which sequence plays: the default walk along the path,
+        or — when the player chose a sit/rest option — the party seated on a
+        bench for a beat before the next stage. Both are the same timed,
+        skippable `Passage`; only what `_draw_passage` renders differs.
+        """
         self._passage = Passage(PASSAGE_DURATION, rng=self.rng)
+        self._passage_resting = resting
         self.buttons = []
         self.choices = []
 
@@ -398,6 +420,69 @@ class Game:
             button.draw(self.screen, self.font, palette)
 
     def _draw_passage(self, palette: scenes.Palette) -> None:
+        """Draw the current travel sequence — a walk, or a seated rest — no UI on screen.
+
+        Dispatches on `self._passage_resting`: a rest passage seats the party
+        on a bench, every other passage walks them along the path. Both share
+        the "click to continue" hint and the empty (panel-free) screen.
+        """
+        assert self._passage is not None
+        if self._passage_resting:
+            self._draw_rest_passage(palette)
+        else:
+            self._draw_walk_passage(palette)
+        hint = self.hint_font.render("click to continue", True, ui.dim_color(palette.text))
+        self.screen.blit(hint, (MARGIN, WINDOW_SIZE[1] - MARGIN))
+
+    def _draw_rest_passage(self, palette: scenes.Palette) -> None:
+        """Draw the party seated on a bench during a rest passage.
+
+        The traveler and every companion sit in a row on a single bench,
+        centered in the foreground — the resting counterpart to the walking
+        party in `_draw_walk_passage`. Recruitment order is preserved left to
+        right (traveler first), so a party that grows over the journey fills
+        the bench in the same order it forms on the road.
+        """
+        # The seated party is the traveler plus each companion, in the order
+        # they joined — appearances pulled from the same per-companion cache
+        # the walking passage uses, so a companion looks identical sitting or
+        # walking.
+        seated = [self.traveler_appearance]
+        for companion in self.state.companions:
+            seated.append(
+                self._companion_appearances.get(
+                    companion.id, scenes.appearance_for_seed(companion.id)
+                )
+            )
+
+        # Center the row horizontally and size the bench to span it, with a
+        # little padding past the outermost sitter on each side and a floor so
+        # a solo traveler still gets a proper bench rather than a stool.
+        spacing = WINDOW_SIZE[0] * REST_SEAT_SPACING
+        row_width = spacing * (len(seated) - 1)
+        center_x = WINDOW_SIZE[0] / 2
+        first_x = center_x - row_width / 2
+        seat_y = WINDOW_SIZE[1] * REST_SEAT_Y_RATIO
+        bench_width = max(
+            WINDOW_SIZE[0] * REST_BENCH_MIN_WIDTH_RATIO,
+            row_width + WINDOW_SIZE[0] * REST_BENCH_PADDING_RATIO * 2,
+        )
+        scenes.draw_bench(self.screen, palette, center_x, seat_y, bench_width)
+        # Each sitter gets a different idle-breathing phase so the row doesn't
+        # rise and fall in unison — the seated equivalent of the walkers'
+        # staggered gait offsets.
+        for index, appearance in enumerate(seated):
+            scenes.draw_person_seated(
+                self.screen,
+                palette,
+                first_x + index * spacing,
+                seat_y,
+                appearance,
+                self._elapsed,
+                idle_phase=index * 1.7,
+            )
+
+    def _draw_walk_passage(self, palette: scenes.Palette) -> None:
         """Draw the traveler mid-walk, with no text panel or buttons on screen.
 
         `ease_in_out_quad` on the walk fraction means the traveler starts and
@@ -446,8 +531,6 @@ class Game:
             gait_offset=self._passage.gait_offset,
             gait_speed=self._passage.gait_speed,
         )
-        hint = self.hint_font.render("click to continue", True, ui.dim_color(palette.text))
-        self.screen.blit(hint, (MARGIN, WINDOW_SIZE[1] - MARGIN))
 
     def _draw(self) -> None:
         # `desaturation` is the one number driving all hardship visuals: 0 at

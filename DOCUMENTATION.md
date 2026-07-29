@@ -353,6 +353,27 @@ walking scenery doesn't fit the moment a journey ends. `_draw` mirrors this bran
 of at a constant robotic speed) and returning early — the text panel, buttons, and keepsakes
 never draw while a passage is on screen.
 
+**Rest passages (the party seated on a bench).** Not every between-stage beat is a walk. A
+choice can set a `rest` flag in `content/stages.json` (the sit/rest/make-camp options — "Sit on
+the bank a while before crossing", "Rest in the shade", etc.); `stages._parse_choice` reads it
+onto `Choice.rest`, defaulting `False` for the overwhelming majority of "keep walking" choices.
+When the player picks a rest choice, `Game._handle_choice_click` passes `resting=choice.rest`
+into `_start_passage`, which records it on `Game._passage_resting`. The passage timer, skip, and
+early-return `_update`/`_draw` branching are all identical to a walk — only what gets drawn
+differs: `Game._draw_passage` dispatches to `_draw_rest_passage`, which seats the traveler and
+every companion in a row on a single bench (`scenes.draw_bench` + `scenes.draw_person_seated`)
+instead of walking them along the path. The seated row preserves recruitment order left to
+right (traveler first), reuses the exact same per-companion appearance cache the walk uses so a
+companion looks identical sitting or walking, and staggers each sitter's slow idle-breathing
+phase the way the walkers stagger gait offsets. `scenes.draw_bench` sizes the bench to span the
+row (with a minimum width so a solo traveler still gets a real bench) and derives its wood tone
+from the season palette's `ground`, so it sits naturally in any season; the seat height
+(`REST_SEAT_Y_RATIO`) is tuned so the seated figures' hanging shins land their feet on the drawn
+path, the same grounding the walking figure gets from `path_y_ratio`. `draw_person_seated` is a
+seated front pose built from the same `_pixel_rect` blocks as `draw_traveler`: hips on the seat,
+torso and head upright, arms resting at the sides, and shins dropping off the seat's front edge
+to plant the feet — the read that says "sitting" rather than "standing".
+
 **NPC portraits (`scenes.draw_portrait`, `stages.SceneCharacter`).** A stage whose situation
 describes a specific person (the woman at the well, the trader at the market) can declare an
 optional `character` block in `content/stages.json`; `stages._parse_character` validates it

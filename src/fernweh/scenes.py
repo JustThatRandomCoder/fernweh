@@ -541,8 +541,10 @@ def draw_bench(
     # The seat plank itself, with a lighter top edge for a hint of depth.
     _pixel_rect(surface, wood, left, seat_y, seat_width, plank_h)
     _pixel_rect(surface, wood_top, left, seat_y, seat_width, plank_h * 0.35)
-    # A low backrest: two uprights and a horizontal rail behind the seat.
-    back_h = plank_h * 2.6
+    # A low backrest: two uprights and a horizontal rail behind the seat. Kept
+    # short enough (roughly a seated figure's torso height) that the top rail
+    # sits behind the sitters' backs rather than crossing their necks.
+    back_h = plank_h * 1.6
     back_top = seat_y - back_h
     for upright_x in (left + leg_w, center_x + seat_width / 2 - 2 * leg_w):
         _pixel_rect(surface, _darken(wood, 0.1), upright_x, back_top, leg_w, back_h)
