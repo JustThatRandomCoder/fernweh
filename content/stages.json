@@ -386,6 +386,7 @@
       "scene": {
         "description": "A woodcutter's clearing, smoke rising thin from a low chimney.",
         "weather": "overcast",
+        "landmark": "cabin",
         "character": {
           "role": "man",
           "pose": "standing",

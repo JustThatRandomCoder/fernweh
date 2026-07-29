@@ -1234,6 +1234,125 @@ def _draw_orchard(
             )
 
 
+def _draw_building(
+    surface: pygame.Surface,
+    palette: Palette,
+    width: int,
+    height: int,
+    ground_height: float,
+    elapsed: float,
+    *,
+    x_ratio: float,
+    wall_color: Color,
+    scale: float = 1.0,
+    ruined: bool = False,
+    chimney_smoke: bool = False,
+    lantern: bool = False,
+) -> None:
+    """Draw one small building, shared by the cabin/stone-house/shelter/depot landmarks.
+
+    A single body with a pitched roof, a door, and a window, tuned by keyword
+    flags rather than four near-identical copies: `ruined` breaks the roofline
+    and knocks a gap in a wall (the "half-collapsed shelter"), `chimney_smoke`
+    adds a chimney with puffs rising and fading (the woodcutter's smoke), and
+    `lantern` hangs a warm glowing light by the door (the healer's lantern in
+    the mist). Colors derive from `wall_color` so each caller only picks a base
+    tone.
+    """
+    sky_height = height - ground_height
+    x = width * x_ratio
+    base_y = sky_height + ground_height * path_y_ratio(x_ratio)
+    wall_w = width * 0.1 * scale
+    wall_h = ground_height * 0.6 * scale
+    left = x - wall_w / 2
+    top = base_y - wall_h
+
+    roof_color = _darken(wall_color, 0.35)
+    # The wall body, then a door and a small window punched into it.
+    _pixel_rect(surface, wall_color, left, top, wall_w, wall_h)
+    if ruined:
+        # Knock a dark gap out of one upper corner so the wall reads as broken.
+        _pixel_rect(
+            surface, _darken(wall_color, 0.55), left + wall_w * 0.6, top, wall_w * 0.4, wall_h * 0.4
+        )
+    door_w = wall_w * 0.28
+    _pixel_rect(
+        surface,
+        _darken(wall_color, 0.5),
+        x - door_w / 2,
+        base_y - wall_h * 0.55,
+        door_w,
+        wall_h * 0.55,
+    )
+    window = _lighten(palette.accent, 0.2)
+    _pixel_rect(
+        surface, window, left + wall_w * 0.12, top + wall_h * 0.25, wall_w * 0.22, wall_h * 0.22
+    )
+
+    # The pitched roof: a triangle across the top, with a broken apex when ruined.
+    apex = (x, top - ground_height * 0.28 * scale)
+    if ruined:
+        # A caved-in roof: draw only the left half of the pitch, leaving the
+        # right side open to the sky.
+        pygame.draw.polygon(surface, roof_color, [(left - 4, top), apex, (x, top)])
+    else:
+        pygame.draw.polygon(surface, roof_color, [(left - 4, top), apex, (left + wall_w + 4, top)])
+
+    if chimney_smoke:
+        # A chimney on the roof, then a column of puffs rising from it, each
+        # drifting up and fading on its own looping cycle so smoke reads as
+        # continuously curling upward rather than a static shape.
+        chimney_x = left + wall_w * 0.7
+        chimney_y = top - ground_height * 0.16 * scale
+        _pixel_rect(
+            surface, roof_color, chimney_x, chimney_y, wall_w * 0.16, ground_height * 0.16 * scale
+        )
+        for i in range(4):
+            # Each puff's progress runs 0..1 on a loop, offset per puff so they
+            # are spaced out along the rising column.
+            prog = (elapsed * 0.4 + i * 0.25) % 1.0
+            puff_y = chimney_y - prog * ground_height * 0.7
+            puff_x = chimney_x + wall_w * 0.08 + math.sin(prog * 4 + i) * 6
+            radius = round((3 + prog * 7) * scale)
+            alpha = round(150 * (1 - prog))
+            smoke = pygame.Surface((radius * 2 + 2, radius * 2 + 2), pygame.SRCALPHA)
+            pygame.draw.circle(smoke, (235, 235, 235, alpha), (radius + 1, radius + 1), radius)
+            surface.blit(smoke, (puff_x - radius, puff_y - radius))
+
+    if lantern:
+        # A small warm glow hung beside the door — a soft halo plus a bright
+        # core, gently pulsing so it reads as a live flame in the mist.
+        pulse = 0.7 + 0.3 * math.sin(elapsed * 2.5)
+        lx = round(x + door_w)
+        ly = round(base_y - wall_h * 0.5)
+        for r, a in ((14, 60), (9, 110), (4, 220)):
+            glow = pygame.Surface((r * 2, r * 2), pygame.SRCALPHA)
+            pygame.draw.circle(glow, (255, 214, 130, round(a * pulse)), (r, r), r)
+            surface.blit(glow, (lx - r, ly - r))
+
+
+def _draw_cabin(
+    surface: pygame.Surface,
+    palette: Palette,
+    width: int,
+    height: int,
+    ground_height: float,
+    elapsed: float,
+) -> None:
+    """Draw a woodcutter's cabin in a clearing, smoke rising thin from its chimney."""
+    _draw_building(
+        surface,
+        palette,
+        width,
+        height,
+        ground_height,
+        elapsed,
+        x_ratio=0.66,
+        wall_color=_darken(palette.ground, 0.34),
+        chimney_smoke=True,
+    )
+
+
 # Maps each landmark name to its draw routine. Every drawer takes the same
 # (surface, palette, width, height, ground_height, elapsed) signature so
 # `draw_landmark` can call any of them uniformly. A name here must also be in
@@ -1244,6 +1363,7 @@ _LANDMARK_DRAWERS: dict[str, object] = {
     "stream": _draw_stream,
     "lone_tree": _draw_lone_tree,
     "orchard": _draw_orchard,
+    "cabin": _draw_cabin,
 }
 
 
