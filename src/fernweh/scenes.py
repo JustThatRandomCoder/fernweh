@@ -1064,11 +1064,6 @@ def _draw_bridge(
             _pixel_rect(surface, wood, x - 1, post_top, max(2, round(width * 0.004)), y - post_top)
 
 
-# Maps each landmark name to its draw routine. Every drawer takes the same
-# (surface, palette, width, height, ground_height, elapsed) signature so
-# `draw_landmark` can call any of them uniformly. A name here must also be in
-# `stages.VALID_LANDMARKS`; names validated in content but not yet given a
-# drawer are simply skipped by `draw_landmark`.
 def _draw_stream(
     surface: pygame.Surface,
     palette: Palette,
@@ -1179,10 +1174,76 @@ def _draw_lone_tree(
     surface.blit(canopy, (top[0] - center, top[1] - center * 1.2))
 
 
+def _draw_orchard(
+    surface: pygame.Surface,
+    palette: Palette,
+    width: int,
+    height: int,
+    ground_height: float,
+    elapsed: float,
+) -> None:
+    """Draw a row of low fruit trees with heavy fruit, a village hinted behind them.
+
+    Squat, round trees (lower and fuller than the roadside tree line) laid out
+    in a row, each dotted with fruit on its "low branches"; two small house
+    silhouettes sit on the far hill for the "quiet village" beyond. Each tree
+    sways on its own slow phase so the little orchard breathes.
+    """
+    sky_height = height - ground_height
+    foliage = palette.foliage or _darken(palette.ground, 0.2)
+    trunk_color = _darken(palette.ground, 0.42)
+    # Fruit picks up the season's warm accent so it reads as ripe fruit, not
+    # random dots, and stays legible against the green canopy.
+    fruit_color = _lerp_color(palette.accent, (196, 60, 48), 0.5)
+
+    # Two simple house silhouettes on the far hillside — just enough to say
+    # "village" without drawing a whole settlement.
+    house = _darken(palette.ground, 0.3)
+    for hx in (0.34, 0.42):
+        hxp = width * hx
+        hy = sky_height + ground_height * 0.28
+        _pixel_rect(surface, house, hxp, hy, width * 0.03, ground_height * 0.16)
+        pygame.draw.polygon(
+            surface,
+            _darken(house, 0.2),
+            [
+                (hxp - 3, hy),
+                (hxp + width * 0.015, hy - ground_height * 0.1),
+                (hxp + width * 0.03 + 3, hy),
+            ],
+        )
+
+    # The orchard row itself, nearer the viewer and off to the right so it
+    # stays clear of the far houses.
+    for i, x_ratio in enumerate((0.5, 0.62, 0.74, 0.86)):
+        x = width * x_ratio
+        base_y = sky_height + ground_height * path_y_ratio(x_ratio)
+        trunk_h = ground_height * 0.5
+        sway = math.sin(elapsed * 0.6 + i) * 3
+        top = (x + sway, base_y - trunk_h)
+        pygame.draw.line(surface, trunk_color, (x, base_y), top, max(3, round(width * 0.005)))
+        # A low, round canopy.
+        radius = ground_height * 0.32
+        pygame.draw.circle(surface, foliage, (round(top[0]), round(top[1])), round(radius))
+        # Fruit dotted around the lower half of the canopy.
+        for angle in (0.4, 1.2, 2.0, 2.8, 3.6):
+            fx = top[0] + math.cos(angle) * radius * 0.7
+            fy = top[1] + math.sin(angle) * radius * 0.55 + radius * 0.2
+            pygame.draw.circle(
+                surface, fruit_color, (round(fx), round(fy)), max(2, round(radius * 0.12))
+            )
+
+
+# Maps each landmark name to its draw routine. Every drawer takes the same
+# (surface, palette, width, height, ground_height, elapsed) signature so
+# `draw_landmark` can call any of them uniformly. A name here must also be in
+# `stages.VALID_LANDMARKS`; names validated in content but not yet given a
+# drawer are simply skipped by `draw_landmark`.
 _LANDMARK_DRAWERS: dict[str, object] = {
     "bridge": _draw_bridge,
     "stream": _draw_stream,
     "lone_tree": _draw_lone_tree,
+    "orchard": _draw_orchard,
 }
 
 

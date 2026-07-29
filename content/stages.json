@@ -291,7 +291,8 @@
       "season": "summer",
       "scene": {
         "description": "A shaded orchard at the edge of a quiet village, fruit heavy on low branches.",
-        "weather": "warm"
+        "weather": "warm",
+        "landmark": "orchard"
       },
       "situation": "The orchard isn't fenced, and nobody's in sight. The village beyond looks like it could spare a proper meal, for the right price.",
       "choices": [
