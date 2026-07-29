@@ -78,7 +78,8 @@
       "season": "spring",
       "scene": {
         "description": "A shallow stream crossing under new leaves, sunlight breaking through in patches.",
-        "weather": "clear"
+        "weather": "clear",
+        "landmark": "stream"
       },
       "situation": "The stream is cold and only knee-deep. On the far bank, something pale catches the light among the stones.",
       "choices": [

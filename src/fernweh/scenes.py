@@ -1069,8 +1069,62 @@ def _draw_bridge(
 # `draw_landmark` can call any of them uniformly. A name here must also be in
 # `stages.VALID_LANDMARKS`; names validated in content but not yet given a
 # drawer are simply skipped by `draw_landmark`.
+def _draw_stream(
+    surface: pygame.Surface,
+    palette: Palette,
+    width: int,
+    height: int,
+    ground_height: float,
+    elapsed: float,
+) -> None:
+    """Draw a shallow stream crossing the path, with shimmering water and pale stones.
+
+    A cool water ribbon follows the same path curve the traveler walks, so the
+    crossing sits exactly where the road does. Slow, drifting highlight lines
+    give the surface a live shimmer; a few pale stones near the middle are the
+    "something pale catches the light among the stones" the situation names.
+    """
+    sky_height = height - ground_height
+    # A cool water tone: the season's sky pulled toward a muted blue, so it
+    # still reads as this season's light on the water rather than a fixed blue.
+    water = _lerp_color(palette.sky_bottom, (96, 130, 158), 0.55)
+    half = ground_height * 0.1
+    steps = 40
+
+    def center_y(i: int) -> float:
+        return sky_height + ground_height * path_y_ratio(i / steps)
+
+    # The water body: a wide ribbon centered on the path curve.
+    top_edge = [(width * i / steps, center_y(i) - half) for i in range(steps + 1)]
+    bottom_edge = [(width * i / steps, center_y(i) + half) for i in range(steps + 1)]
+    pygame.draw.polygon(surface, water, [*top_edge, *reversed(bottom_edge)])
+
+    # Shimmer: a few pale highlight lines drifting slowly sideways, each at its
+    # own depth within the band, so the surface never looks like flat paint.
+    shimmer = _lighten(water, 0.4)
+    for lane, speed, phase in ((-0.4, 9.0, 0.0), (0.1, 6.0, 2.0), (0.45, 11.0, 4.0)):
+        pts = []
+        for i in range(steps + 1):
+            x = width * i / steps
+            wobble = math.sin(elapsed * 1.5 + phase + i * 0.4) * half * 0.18
+            pts.append((x, center_y(i) + lane * half + wobble))
+        # The drift is a slow horizontal scroll of where the line brightens,
+        # done by only stroking a moving window of the points.
+        offset = int((elapsed * speed) % (steps + 1))
+        window = pts[offset:] + pts[:offset]
+        pygame.draw.aalines(surface, shimmer, False, window[: steps // 2])
+
+    # A cluster of pale, smooth stones near the middle of the crossing.
+    stone = _lighten(palette.ground, 0.5)
+    for sx, sy in ((0.44, 0.1), (0.52, -0.2), (0.57, 0.25), (0.49, 0.4)):
+        cx = width * sx
+        cy = sky_height + ground_height * path_y_ratio(sx) + sy * half
+        pygame.draw.ellipse(surface, stone, pygame.Rect(cx - 6, cy - 3, 12, 6))
+
+
 _LANDMARK_DRAWERS: dict[str, object] = {
     "bridge": _draw_bridge,
+    "stream": _draw_stream,
 }
 
 
