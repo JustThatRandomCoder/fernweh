@@ -112,6 +112,16 @@ class Game:
         # (SceneCharacter, PersonAppearance) pair rebuilt each stage sync, or
         # None on stages with an empty landscape (most of them).
         self._stage_character: tuple[SceneCharacter, scenes.PersonAppearance] | None = None
+        # The current stage's landmark (bridge, stream, building), drawn into
+        # the landscape so the scene matches the situation text — None on
+        # stages the generic season landscape already covers, and on the
+        # ending screen. Set each stage sync.
+        self._stage_landmark: str | None = None
+        # The landmark carried through the current passage: whatever the stage
+        # the player just left showed, so the walk/rest sequence keeps that
+        # feature on screen (you walk across the bridge you chose to cross)
+        # rather than blanking it the instant a choice resolves.
+        self._passage_landmark: str | None = None
         # Every companion's appearance, keyed by id, learned the moment their
         # recruiting stage's portrait is first shown — so a companion who
         # joins keeps looking exactly like their portrait once they start
@@ -280,6 +290,10 @@ class Game:
         """
         self._passage = Passage(PASSAGE_DURATION, rng=self.rng)
         self._passage_resting = resting
+        # Carry the just-left stage's landmark through the walk/rest so its
+        # scenery (the bridge, the stream) stays on screen while the traveler
+        # crosses it, instead of vanishing the moment the choice resolved.
+        self._passage_landmark = self._stage_landmark
         self.buttons = []
         self.choices = []
 
@@ -345,6 +359,7 @@ class Game:
         )
         self.typewriter.reset(stage.situation)
         self._build_buttons(stage.choices)
+        self._stage_landmark = stage.landmark
 
         if stage.character is None:
             self._stage_character = None
@@ -370,6 +385,9 @@ class Game:
             return
         self._synced_ended = True
         self._stage_character = None
+        # The journey's end is an open snow field, not any single stage's
+        # landmark — clear it so no bridge/building lingers behind the ending.
+        self._stage_landmark = None
         self._previous_frame = self.screen.copy()
         self._transition = Tween(
             TRANSITION_START_ALPHA, 0, TRANSITION_DURATION, easing=ease_out_quad
@@ -538,7 +556,19 @@ class Game:
         # afflictions. It's used both for the background (via draw_scene) and
         # for every UI surface below (via the desaturated `palette`).
         desaturation = hardship_level(self.state) / MAX_DESATURATION_AFFLICTIONS
-        scenes.draw_scene(self.screen, self.state.season, desaturation, self._elapsed)
+        # Which landmark (if any) belongs in the landscape depends on what's on
+        # screen: the menu shows none, a passage keeps the stage it's leaving,
+        # and a live stage shows its own. Computed here so the single
+        # draw_scene call stays the one place the background is drawn.
+        if self.menu_active:
+            scene_landmark = None
+        elif self._passage is not None:
+            scene_landmark = self._passage_landmark
+        else:
+            scene_landmark = self._stage_landmark
+        scenes.draw_scene(
+            self.screen, self.state.season, desaturation, self._elapsed, landmark=scene_landmark
+        )
 
         if self.particle_system:
             self.particle_system.draw(self.screen)

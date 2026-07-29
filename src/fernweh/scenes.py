@@ -211,7 +211,11 @@ def desaturate_palette(palette: Palette, amount: float) -> Palette:
 
 
 def draw_scene(
-    surface: pygame.Surface, season: str, desaturation: float = 0.0, elapsed: float = 0.0
+    surface: pygame.Surface,
+    season: str,
+    desaturation: float = 0.0,
+    elapsed: float = 0.0,
+    landmark: str | None = None,
 ) -> None:
     """Draw a full seasonal scene: sky, sun/moon, drifting clouds, hills, ground, and trees.
 
@@ -219,6 +223,9 @@ def draw_scene(
     level without any per-affliction special-casing. `elapsed` (seconds since
     the game started) drives the only continuous motion in the background
     itself — cloud drift — independent of the particle system's weather.
+    `landmark`, when given, is one concrete feature the current stage names
+    (a bridge, a stream, a building) drawn on top of the generic landscape so
+    the picture matches the words — see `draw_landmark`.
     """
     palette = desaturate_palette(palette_for_season(season), desaturation)
     width, height = surface.get_size()
@@ -268,6 +275,12 @@ def draw_scene(
     # so trunks planted near its edges still occlude it the way real
     # roadside trees would.
     _draw_path(surface, palette, width, sky_height, ground_height)
+
+    # A stage-specific landmark (bridge, stream, building) sits on the ground
+    # above the path but below the foreground trees, so trees nearest the
+    # viewer still overlap it the way they overlap everything else.
+    if landmark is not None:
+        draw_landmark(surface, palette, landmark, width, height, ground_height, elapsed)
 
     # Trees stand on top of everything else in the scene — the nearest layer,
     # rooted in the ground band.
@@ -507,6 +520,28 @@ def draw_traveler(
     _pixel_rect(surface, appearance.hair, x - 2 * unit, head_bottom - head_h, 4 * unit, unit * 1.4)
     _pixel_rect(surface, appearance.hair, x - 2.2 * unit, head_bottom - head_h, unit * 0.6, head_h)
     _pixel_rect(surface, appearance.hair, x + 1.6 * unit, head_bottom - head_h, unit * 0.6, head_h)
+
+
+def draw_landmark(
+    surface: pygame.Surface,
+    palette: Palette,
+    landmark: str,
+    width: int,
+    height: int,
+    ground_height: float,
+    elapsed: float,
+) -> None:
+    """Draw one named landmark into the scene, dispatching on the landmark name.
+
+    A registry (`_LANDMARK_DRAWERS`) maps each name from `stages.VALID_LANDMARKS`
+    to a small draw routine, so adding a landmark is adding one function and one
+    registry entry — `draw_scene` and the game loop never change. An unknown
+    name (one validated in content but not yet given a drawer) is silently
+    skipped rather than crashing the render.
+    """
+    drawer = _LANDMARK_DRAWERS.get(landmark)
+    if drawer is not None:
+        drawer(surface, palette, width, height, ground_height, elapsed)
 
 
 def draw_bench(
@@ -964,6 +999,15 @@ def _draw_bare_branches(
             top[1] - math.cos(angle_offset) * branch_length,
         )
         pygame.draw.line(surface, color, top, end, max(1, round(2 * scale)))
+
+
+# Maps each landmark name to its draw routine. Every drawer takes the same
+# (surface, palette, width, height, ground_height, elapsed) signature so
+# `draw_landmark` can call any of them uniformly. Populated below as each
+# landmark's drawing function is defined; a name in this dict must also be in
+# `stages.VALID_LANDMARKS`, and vice versa once every landmark has a drawer.
+LandmarkDrawer = "Callable[[pygame.Surface, Palette, int, int, float, float], None]"
+_LANDMARK_DRAWERS: dict[str, object] = {}
 
 
 def _lerp_color(a: Color, b: Color, t: float) -> Color:
