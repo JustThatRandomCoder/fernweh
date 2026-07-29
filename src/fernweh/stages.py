@@ -54,6 +54,13 @@ class Choice:
     companion: dict[str, str] | None
     unavailable_if: str | None
     unavailable_reason: str | None
+    # When true, choosing this option is the player deciding to sit and rest
+    # (on a bench, a bank, in the shade) before moving on — so the travel
+    # sequence that follows shows the party seated on a bench rather than
+    # walking the path. Pure content flag; the rendering layer reads it to
+    # pick which passage animation to play. Defaults to False for the vast
+    # majority of choices, which are ordinary "keep walking" decisions.
+    rest: bool
 
 
 @dataclass(frozen=True)
@@ -244,6 +251,9 @@ def _parse_choice(raw: dict[str, Any], season: str) -> Choice:
         companion=raw.get("companion"),
         unavailable_if=unavailable_if,
         unavailable_reason=raw.get("unavailable_reason"),
+        # Optional in content; only the rest/sit choices set it, everything
+        # else defaults to a normal walking passage.
+        rest=bool(raw.get("rest", False)),
     )
 
 

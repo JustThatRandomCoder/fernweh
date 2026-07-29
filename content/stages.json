@@ -85,6 +85,7 @@
         {
           "id": "spring_2_rest",
           "text": "Sit on the bank a while before crossing.",
+          "rest": true,
           "effects": { "energy": 15, "supplies": -2 },
           "cures": ["exhausted"],
           "outcome": "The water talks to itself over the stones. You feel some of the last few days loosen in your shoulders."
@@ -189,6 +190,7 @@
         {
           "id": "summer_5_rest",
           "text": "Rest in the shade until the worst of the heat passes.",
+          "rest": true,
           "effects": { "energy": 10, "supplies": -3 },
           "outcome": "You wait it out, watching the heat ripple over the plain. It's slow, but you leave steadier than you arrived."
         },
@@ -324,6 +326,7 @@
         {
           "id": "summer_9_talk",
           "text": "Sit and talk a while before the descent.",
+          "rest": true,
           "effects": { "energy": 10, "supplies": -2 },
           "outcome": "Nobody says anything important, and somehow that's exactly what the moment needed."
         },
@@ -426,6 +429,7 @@
         {
           "id": "autumn_12_rest",
           "text": "Make an early camp at the field's edge.",
+          "rest": true,
           "effects": { "energy": 14, "supplies": -3 },
           "cures": ["exhausted"],
           "outcome": "The stubble is dry and the ground is flat, and you sleep better than the setting deserves."
@@ -463,6 +467,7 @@
         {
           "id": "autumn_13_rest_roadside",
           "text": "Rest by the roadside instead.",
+          "rest": true,
           "effects": { "energy": 8, "supplies": -2 },
           "outcome": "It's not the same as a proper bed, but the mist thins a little while you sit, and that helps more than expected."
         },
@@ -591,6 +596,7 @@
         {
           "id": "winter_17_rest",
           "text": "Rest here a full day before continuing.",
+          "rest": true,
           "effects": { "energy": 12, "supplies": -5 },
           "cures": ["exhausted"],
           "outcome": "It costs you supplies you can't really spare, but you leave standing straighter than you arrived."
@@ -651,6 +657,7 @@
         {
           "id": "winter_19_rest_first",
           "text": "Sit down at the road's end before going any further.",
+          "rest": true,
           "effects": { "energy": 8, "supplies": -2 },
           "outcome": "You let yourself stop, properly, for what feels like the first time since spring. The snow keeps falling regardless."
         },

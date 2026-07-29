@@ -39,6 +39,7 @@ def _choice(**overrides) -> Choice:
         companion=None,
         unavailable_if=None,
         unavailable_reason=None,
+        rest=False,
     )
     defaults.update(overrides)
     return Choice(**defaults)
