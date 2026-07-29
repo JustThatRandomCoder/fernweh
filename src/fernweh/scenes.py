@@ -509,6 +509,105 @@ def draw_traveler(
     _pixel_rect(surface, appearance.hair, x + 1.6 * unit, head_bottom - head_h, unit * 0.6, head_h)
 
 
+def draw_bench(
+    surface: pygame.Surface,
+    palette: Palette,
+    center_x: float,
+    seat_y: float,
+    seat_width: float,
+) -> None:
+    """Draw a simple wooden bench: a seat plank, a backrest, and two pairs of legs.
+
+    Drawn during a rest passage (see `game.py`) as the thing the traveler and
+    their companions sit on. `seat_y` is the top surface of the seat plank —
+    the same y a seated figure's hips rest on, so `draw_person_seated` and this
+    function stay in lock-step about where "the seat" is. Colors are derived
+    from the season palette's ground tone (a woody brown already present in
+    every season) rather than a new hard-coded color, so the bench sits
+    naturally inside whatever season's scene is on screen.
+    """
+    # A warm wood tone: the ground darkened toward brown, with a lighter top
+    # face so the plank reads as catching the light from above.
+    wood = _darken(palette.ground, 0.45)
+    wood_top = _lighten(wood, 0.18)
+    plank_h = max(6.0, seat_width * 0.06)
+    left = center_x - seat_width / 2
+    # Back legs first (further from the viewer), then the seat, then the front
+    # legs and backrest on top — so nearer parts correctly occlude farther ones.
+    leg_w = max(4.0, seat_width * 0.04)
+    leg_h = plank_h * 3.2
+    for leg_x in (left + leg_w, center_x + seat_width / 2 - 2 * leg_w):
+        _pixel_rect(surface, _darken(wood, 0.2), leg_x, seat_y, leg_w, leg_h)
+    # The seat plank itself, with a lighter top edge for a hint of depth.
+    _pixel_rect(surface, wood, left, seat_y, seat_width, plank_h)
+    _pixel_rect(surface, wood_top, left, seat_y, seat_width, plank_h * 0.35)
+    # A low backrest: two uprights and a horizontal rail behind the seat.
+    back_h = plank_h * 2.6
+    back_top = seat_y - back_h
+    for upright_x in (left + leg_w, center_x + seat_width / 2 - 2 * leg_w):
+        _pixel_rect(surface, _darken(wood, 0.1), upright_x, back_top, leg_w, back_h)
+    _pixel_rect(surface, wood, left, back_top, seat_width, plank_h * 0.8)
+
+
+def draw_person_seated(
+    surface: pygame.Surface,
+    palette: Palette,
+    center_x: float,
+    seat_y: float,
+    appearance: PersonAppearance,
+    elapsed: float,
+    idle_phase: float = 0.0,
+) -> None:
+    """Draw one person sitting on a bench, built from the same blocky pixels as `draw_traveler`.
+
+    The pose is a seated front view: hips resting on `seat_y`, torso and head
+    upright above, arms at the sides, and the shins hanging down off the front
+    of the seat to rest feet on the ground below. `idle_phase` offsets a slow
+    breathing bob per person (via `elapsed`) so a row of seated figures doesn't
+    rise and fall in perfect unison — the resting equivalent of the gait offset
+    the walking figures use.
+    """
+    unit = TRAVELER_PIXEL
+    # A gentle, slow breathing rise-and-fall — much smaller and slower than the
+    # walk cycle's bob, because a seated figure is at rest, not in motion.
+    breathe = math.sin(elapsed * 1.6 + idle_phase) * unit * 0.4
+
+    torso_h, head_h = 6 * unit, 4 * unit
+    hip_y = seat_y - breathe
+    shoulder_y = hip_y - torso_h
+    head_bottom = shoulder_y
+
+    # Shins hang straight down from the front edge of the seat to the ground,
+    # feet planted just below — this is the read that says "sitting" rather
+    # than "standing", since the thighs are folded onto the seat and hidden.
+    shin_h = 5 * unit
+    foot_y = seat_y + shin_h
+    _pixel_rect(surface, appearance.trousers, center_x - 2.2 * unit, seat_y, 2 * unit, shin_h)
+    _pixel_rect(surface, appearance.trousers, center_x + 0.2 * unit, seat_y, 2 * unit, shin_h)
+    shoe_color = _darken(appearance.trousers, 0.4)
+    _pixel_rect(surface, shoe_color, center_x - 2.5 * unit, foot_y - unit, 2.6 * unit, unit)
+    _pixel_rect(surface, shoe_color, center_x - 0.1 * unit, foot_y - unit, 2.6 * unit, unit)
+
+    # Torso, then arms resting close at the sides (no swing — hands in the lap),
+    # then the head and hair, mirroring the standing figure's stacking order.
+    _pixel_rect(surface, appearance.tunic, center_x - 2.5 * unit, shoulder_y, 5 * unit, torso_h)
+    _pixel_rect(surface, appearance.skin, center_x - 3 * unit, shoulder_y, unit, 4.5 * unit)
+    _pixel_rect(surface, appearance.skin, center_x + 2 * unit, shoulder_y, unit, 4.5 * unit)
+
+    _pixel_rect(
+        surface, appearance.skin, center_x - 2 * unit, head_bottom - head_h, 4 * unit, head_h
+    )
+    _pixel_rect(
+        surface, appearance.hair, center_x - 2 * unit, head_bottom - head_h, 4 * unit, unit * 1.4
+    )
+    _pixel_rect(
+        surface, appearance.hair, center_x - 2.2 * unit, head_bottom - head_h, unit * 0.6, head_h
+    )
+    _pixel_rect(
+        surface, appearance.hair, center_x + 1.6 * unit, head_bottom - head_h, unit * 0.6, head_h
+    )
+
+
 POSE_HEAD_LEAN: dict[str, float] = {
     "standing": 0.0,
     "sitting": 0.35,
