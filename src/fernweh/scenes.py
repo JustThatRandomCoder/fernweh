@@ -1489,6 +1489,115 @@ def _draw_market(
             )
 
 
+def _draw_dry_riverbed(
+    surface: pygame.Surface,
+    palette: Palette,
+    width: int,
+    height: int,
+    ground_height: float,
+    elapsed: float,
+) -> None:
+    """Draw a cracked, dried-out riverbed with only a thin muddy trickle left.
+
+    A wide band of cracked mud follows the path curve where a river once ran,
+    veined with dry cracks, and a thin, barely-moving trickle of muddy water
+    threads down its middle — "the water reduced to a thin, muddy trickle".
+    """
+    sky_height = height - ground_height
+    half = ground_height * 0.11
+    steps = 40
+    mud = _darken(palette.ground, 0.22)
+
+    def center_y(t: float) -> float:
+        return sky_height + ground_height * path_y_ratio(t)
+
+    # The dry bed: a wide muddy band along the old watercourse.
+    top_edge = [(width * i / steps, center_y(i / steps) - half) for i in range(steps + 1)]
+    bottom_edge = [(width * i / steps, center_y(i / steps) + half) for i in range(steps + 1)]
+    pygame.draw.polygon(surface, mud, [*top_edge, *reversed(bottom_edge)])
+
+    # Dry cracks: short branching lines scattered across the bed, fixed by a
+    # seeded rng so they don't shimmer frame to frame like the water shimmer.
+    crack = _darken(mud, 0.25)
+    rng = random.Random(7)
+    for _ in range(26):
+        t = rng.random()
+        cx = width * t
+        cy = center_y(t) + rng.uniform(-half * 0.8, half * 0.8)
+        angle = rng.uniform(0, math.pi)
+        length = rng.uniform(6, 16)
+        end = (cx + math.cos(angle) * length, cy + math.sin(angle) * length)
+        pygame.draw.line(surface, crack, (cx, cy), end, 1)
+
+    # The last of the water: a thin, dark trickle wobbling gently down the
+    # center, far narrower than the stream's full ribbon.
+    trickle = _lerp_color(mud, (70, 90, 96), 0.5)
+    pts = [
+        (width * i / steps, center_y(i / steps) + math.sin(elapsed * 0.8 + i * 0.5) * 2)
+        for i in range(steps + 1)
+    ]
+    pygame.draw.lines(surface, trickle, False, pts, max(2, round(ground_height * 0.02)))
+
+
+def _draw_frozen_lake(
+    surface: pygame.Surface,
+    palette: Palette,
+    width: int,
+    height: int,
+    ground_height: float,
+    elapsed: float,
+) -> None:
+    """Draw a pale frozen lake with a slow sheen and a line of footprints crossing it.
+
+    A broad sheet of ice sits across the foreground; a soft highlight drifts
+    over it so the surface reads as glassy rather than flat white, and a line
+    of paired footprints recedes across it — "footprints of someone else
+    already crossing it".
+    """
+    sky_height = height - ground_height
+    half = ground_height * 0.16
+    steps = 40
+    # A cool blue-white, tinted away from the winter ground's plain grey so the
+    # ice reads as a frozen sheet rather than just more snow.
+    ice = _lerp_color(_lighten(palette.ground, 0.35), (198, 220, 236), 0.55)
+
+    def center_y(t: float) -> float:
+        return sky_height + ground_height * path_y_ratio(t)
+
+    # The ice sheet: a wide, pale band along the crossing, with a darker cool
+    # shoreline stroked along both edges so it stands out from the snowy banks.
+    top_edge = [(width * i / steps, center_y(i / steps) - half) for i in range(steps + 1)]
+    bottom_edge = [(width * i / steps, center_y(i / steps) + half) for i in range(steps + 1)]
+    pygame.draw.polygon(surface, ice, [*top_edge, *reversed(bottom_edge)])
+    shore = _darken(ice, 0.22)
+    pygame.draw.aalines(surface, shore, False, top_edge)
+    pygame.draw.aalines(surface, shore, False, bottom_edge)
+
+    # A drifting sheen: a soft, brighter band gliding slowly across the ice.
+    sheen = _lighten(ice, 0.5)
+    band_center = (math.sin(elapsed * 0.3) * 0.5 + 0.5) * width
+    sheen_surf = pygame.Surface((width, int(half * 2)), pygame.SRCALPHA)
+    for i in range(steps + 1):
+        x = width * i / steps
+        dist = abs(x - band_center) / (width * 0.18)
+        alpha = max(0, round(120 * (1 - dist)))
+        if alpha:
+            pygame.draw.line(
+                sheen_surf, (*sheen, alpha), (x, 0), (x, half * 2), max(1, round(width / steps) + 1)
+            )
+    surface.blit(sheen_surf, (0, center_y(0.5) - half))
+
+    # A line of footprints receding across the ice: paired dark ovals that
+    # shrink into the distance as they cross, alternating left/right.
+    prints = _darken(ice, 0.3)
+    for i in range(9):
+        t = 0.28 + i * 0.05
+        x = width * t
+        y = center_y(t) + (i % 2) * 4 - 2
+        size = max(2, round(5 - i * 0.3))
+        pygame.draw.ellipse(surface, prints, pygame.Rect(x, y, size * 2, size))
+
+
 # Maps each landmark name to its draw routine. Every drawer takes the same
 # (surface, palette, width, height, ground_height, elapsed) signature so
 # `draw_landmark` can call any of them uniformly. A name here must also be in
@@ -1504,6 +1613,8 @@ _LANDMARK_DRAWERS: dict[str, object] = {
     "shelter": _draw_shelter,
     "depot": _draw_depot,
     "market": _draw_market,
+    "dry_riverbed": _draw_dry_riverbed,
+    "frozen_lake": _draw_frozen_lake,
 }
 
 

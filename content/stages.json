@@ -259,7 +259,8 @@
       "season": "summer",
       "scene": {
         "description": "A cracked riverbed, the water reduced to a thin, muddy trickle.",
-        "weather": "heatwave"
+        "weather": "heatwave",
+        "landmark": "dry_riverbed"
       },
       "situation": "The heat hasn't broken in days. Your legs feel heavier than the distance should account for.",
       "choices": [
@@ -618,6 +619,7 @@
       "scene": {
         "description": "A quiet frozen lake, the ice thick enough to walk, footprints of someone else already crossing it.",
         "weather": "snow",
+        "landmark": "frozen_lake",
         "character": {
           "role": "woman",
           "pose": "sitting",
