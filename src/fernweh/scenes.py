@@ -1430,6 +1430,65 @@ def _draw_depot(
     surface.blit(drift, (x - width * 0.1, base_y - ground_height * 0.12))
 
 
+def _draw_market(
+    surface: pygame.Surface,
+    palette: Palette,
+    width: int,
+    height: int,
+    ground_height: float,
+    elapsed: float,
+) -> None:
+    """Draw a couple of market stalls with striped awnings flapping in the heat.
+
+    Each stall is two posts, a counter, and a scalloped striped awning whose
+    lower edge ripples on a slow sine — the "awnings flapping" the scene names,
+    the one bit of motion that says a market is busy without drawing a crowd.
+    """
+    sky_height = height - ground_height
+    post_color = _darken(palette.ground, 0.4)
+    stripe_a = _lerp_color(palette.accent, (196, 70, 60), 0.4)
+    stripe_b = _lighten(palette.panel, 0.1)
+
+    for stall_i, x_ratio in enumerate((0.52, 0.68)):
+        x = width * x_ratio
+        base_y = sky_height + ground_height * path_y_ratio(x_ratio)
+        stall_w = width * 0.11
+        post_h = ground_height * 0.62
+        left = x - stall_w / 2
+        top = base_y - post_h
+
+        # Posts and a counter board across them.
+        for px in (left, left + stall_w):
+            pygame.draw.line(
+                surface, post_color, (px, base_y), (px, top), max(2, round(width * 0.004))
+            )
+        counter_y = base_y - post_h * 0.35
+        _pixel_rect(surface, post_color, left, counter_y, stall_w, ground_height * 0.05)
+
+        # The awning: a striped band across the top whose bottom edge scallops
+        # and flaps. Each stripe is a quad from the straight top edge down to a
+        # bobbing point on the bottom edge.
+        segs = 6
+        awning_top = top - ground_height * 0.06
+        awning_drop = ground_height * 0.14
+        for s in range(segs):
+            sx0 = left + stall_w * s / segs
+            sx1 = left + stall_w * (s + 1) / segs
+            flap = math.sin(elapsed * 3.0 + stall_i * 1.5 + s * 0.9) * ground_height * 0.02
+            color = stripe_a if s % 2 == 0 else stripe_b
+            pygame.draw.polygon(
+                surface,
+                color,
+                [
+                    (sx0, awning_top),
+                    (sx1, awning_top),
+                    (sx1, awning_top + awning_drop + flap),
+                    ((sx0 + sx1) / 2, awning_top + awning_drop * 1.3 + flap),
+                    (sx0, awning_top + awning_drop + flap),
+                ],
+            )
+
+
 # Maps each landmark name to its draw routine. Every drawer takes the same
 # (surface, palette, width, height, ground_height, elapsed) signature so
 # `draw_landmark` can call any of them uniformly. A name here must also be in
@@ -1444,6 +1503,7 @@ _LANDMARK_DRAWERS: dict[str, object] = {
     "stone_house": _draw_stone_house,
     "shelter": _draw_shelter,
     "depot": _draw_depot,
+    "market": _draw_market,
 }
 
 

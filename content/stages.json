@@ -218,6 +218,7 @@
       "scene": {
         "description": "A dusty crossroads market, awnings flapping in the heat, voices calling out prices.",
         "weather": "clear",
+        "landmark": "market",
         "character": {
           "role": "man",
           "pose": "standing",
