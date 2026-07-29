@@ -458,7 +458,8 @@
       "season": "autumn",
       "scene": {
         "description": "A narrow valley road, cold mist pooling low between the hills.",
-        "weather": "mist"
+        "weather": "mist",
+        "landmark": "stone_house"
       },
       "situation": "The mist hasn't lifted all morning, and it's harder to shake the tiredness than it should be. Somewhere ahead, a healer's lantern is lit outside a small stone house.",
       "choices": [
@@ -521,7 +522,8 @@
       "season": "winter",
       "scene": {
         "description": "The first real snowfall, settling quiet and white over a narrow mountain pass.",
-        "weather": "snow"
+        "weather": "snow",
+        "landmark": "shelter"
       },
       "situation": "The pass is exposed to the wind, and the snow is already deep enough to slow you down. A half-collapsed shelter offers some cover, if you're willing to lose the time.",
       "choices": [
@@ -582,7 +584,8 @@
       "season": "winter",
       "scene": {
         "description": "A near-empty supply depot buried in drifted snow, shelves mostly bare.",
-        "weather": "snow"
+        "weather": "snow",
+        "landmark": "depot"
       },
       "situation": "What's left in your pack is thin, and the depot ahead doesn't look like it has much to spare either. Whatever you decide here, it will need to carry you further than it looks capable of.",
       "choices": [

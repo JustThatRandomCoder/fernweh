@@ -1353,6 +1353,83 @@ def _draw_cabin(
     )
 
 
+def _draw_stone_house(
+    surface: pygame.Surface,
+    palette: Palette,
+    width: int,
+    height: int,
+    ground_height: float,
+    elapsed: float,
+) -> None:
+    """Draw a small stone house with a lit lantern by the door, for the healer in the mist."""
+    _draw_building(
+        surface,
+        palette,
+        width,
+        height,
+        ground_height,
+        elapsed,
+        x_ratio=0.66,
+        # A cool, pale stone tone rather than wood — the season ground pulled
+        # toward grey so it reads as stone in any season.
+        wall_color=_lerp_color(_lighten(palette.ground, 0.2), (150, 150, 156), 0.5),
+        lantern=True,
+    )
+
+
+def _draw_shelter(
+    surface: pygame.Surface,
+    palette: Palette,
+    width: int,
+    height: int,
+    ground_height: float,
+    elapsed: float,
+) -> None:
+    """Draw a small half-collapsed shelter, its roof caved in on one side."""
+    _draw_building(
+        surface,
+        palette,
+        width,
+        height,
+        ground_height,
+        elapsed,
+        x_ratio=0.66,
+        wall_color=_darken(palette.ground, 0.3),
+        scale=0.8,
+        ruined=True,
+    )
+
+
+def _draw_depot(
+    surface: pygame.Surface,
+    palette: Palette,
+    width: int,
+    height: int,
+    ground_height: float,
+    elapsed: float,
+) -> None:
+    """Draw a low, wide supply depot building, mostly buried in drifted snow."""
+    _draw_building(
+        surface,
+        palette,
+        width,
+        height,
+        ground_height,
+        elapsed,
+        x_ratio=0.64,
+        wall_color=_darken(palette.ground, 0.28),
+        scale=1.15,
+    )
+    # A low drift of snow banked against the base of the depot, so it reads as
+    # "buried in drifted snow" rather than a building on bare ground.
+    sky_height = height - ground_height
+    x = width * 0.64
+    base_y = sky_height + ground_height * path_y_ratio(0.64)
+    drift = pygame.Surface((int(width * 0.2), int(ground_height * 0.2)), pygame.SRCALPHA)
+    pygame.draw.ellipse(drift, (*_lighten(palette.ground, 0.35), 220), drift.get_rect())
+    surface.blit(drift, (x - width * 0.1, base_y - ground_height * 0.12))
+
+
 # Maps each landmark name to its draw routine. Every drawer takes the same
 # (surface, palette, width, height, ground_height, elapsed) signature so
 # `draw_landmark` can call any of them uniformly. A name here must also be in
@@ -1364,6 +1441,9 @@ _LANDMARK_DRAWERS: dict[str, object] = {
     "lone_tree": _draw_lone_tree,
     "orchard": _draw_orchard,
     "cabin": _draw_cabin,
+    "stone_house": _draw_stone_house,
+    "shelter": _draw_shelter,
+    "depot": _draw_depot,
 }
 
 
