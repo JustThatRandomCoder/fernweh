@@ -1122,9 +1122,67 @@ def _draw_stream(
         pygame.draw.ellipse(surface, stone, pygame.Rect(cx - 6, cy - 3, 12, 6))
 
 
+def _draw_lone_tree(
+    surface: pygame.Surface,
+    palette: Palette,
+    width: int,
+    height: int,
+    ground_height: float,
+    elapsed: float,
+) -> None:
+    """Draw a single broad tree casting the only shade on a sunbaked plain.
+
+    Bigger than the tree-line trees and set out on its own, with a soft pool of
+    shade beneath it — the "lone tree offering the only shade for miles" the
+    scene describes. The canopy sways slowly so it doesn't read as frozen in
+    the heat-shimmering air.
+    """
+    sky_height = height - ground_height
+    # Set off to one side of center so it stays visible beside the choice UI,
+    # and rooted where the path runs at that x so it stands on the ground.
+    x_ratio = 0.64
+    x = width * x_ratio
+    base_y = sky_height + ground_height * path_y_ratio(x_ratio)
+
+    # A soft shade pool on the ground under the canopy, drawn first so the
+    # trunk and canopy sit on top of it.
+    shade_w, shade_h = int(width * 0.2), int(ground_height * 0.36)
+    shade_surf = pygame.Surface((shade_w, shade_h), pygame.SRCALPHA)
+    pygame.draw.ellipse(shade_surf, (*_darken(palette.ground, 0.35), 90), shade_surf.get_rect())
+    surface.blit(shade_surf, (x - shade_w / 2, base_y - shade_h * 0.4))
+
+    # A tall trunk, thicker than the roadside trees, with a slow top-sway.
+    trunk_color = _darken(palette.ground, 0.42)
+    trunk_h = ground_height * 1.7
+    sway = math.sin(elapsed * 0.5) * 6
+    top = (x + sway, base_y - trunk_h)
+    pygame.draw.line(surface, trunk_color, (x, base_y), top, max(4, round(width * 0.008)))
+
+    # A broad canopy: a large cluster of overlapping circles, summer-green (or
+    # the season foliage), with a darker underside for a hint of volume.
+    foliage = palette.foliage or _darken(palette.ground, 0.2)
+    puffs = (
+        (-1.0, 0.15, 0.62),
+        (-0.35, -0.4, 0.8),
+        (0.4, -0.15, 0.72),
+        (1.0, 0.2, 0.58),
+        (0.0, 0.35, 0.66),
+    )
+    unit = width * 0.055
+    canopy_size = int(unit * 5)
+    canopy = pygame.Surface((canopy_size, canopy_size), pygame.SRCALPHA)
+    center = canopy_size / 2
+    for dx, dy, r in puffs:
+        pygame.draw.circle(
+            canopy, foliage, (round(center + dx * unit), round(center + dy * unit)), round(unit * r)
+        )
+    surface.blit(canopy, (top[0] - center, top[1] - center * 1.2))
+
+
 _LANDMARK_DRAWERS: dict[str, object] = {
     "bridge": _draw_bridge,
     "stream": _draw_stream,
+    "lone_tree": _draw_lone_tree,
 }
 
 

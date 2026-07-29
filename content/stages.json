@@ -185,7 +185,8 @@
       "season": "summer",
       "scene": {
         "description": "A dry, sunbaked plain shimmering at the edges, a lone tree offering the only shade for miles.",
-        "weather": "heatwave"
+        "weather": "heatwave",
+        "landmark": "lone_tree"
       },
       "situation": "The heat presses down harder than you expected. The tree ahead throws a thin patch of shade, and beyond it the road just keeps going, pale and shimmering.",
       "choices": [
