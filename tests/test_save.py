@@ -16,7 +16,12 @@ def _isolated_saves_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None
 
 
 def _sample_state() -> GameState:
-    state = GameState(energy=57, supplies=41, stage_index=6)
+    state = GameState(
+        energy=57,
+        supplies=41,
+        stage_index=6,
+        plan=["spring_0", "spring_2", "spring_1", "spring_3", "spring_4", "summer_5", "summer_8"],
+    )
     state.companions.append(Companion("mira", "Mira", "practical", joined_at_stage=1))
     state.memories.append("A stranger's quiet thanks.")
     state.afflictions.add("exhausted")
@@ -33,6 +38,7 @@ def test_save_and_load_round_trips_state() -> None:
     assert loaded.state.energy == original.energy
     assert loaded.state.supplies == original.supplies
     assert loaded.state.stage_index == original.stage_index
+    assert loaded.state.plan == original.plan
     assert loaded.state.companions == original.companions
     assert loaded.state.memories == original.memories
     assert loaded.state.afflictions == original.afflictions

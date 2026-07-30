@@ -1,20 +1,23 @@
 """Tests for stage content loading, validation, and choice resolution."""
 
 import json
+import random
 
 import pytest
 from fernweh.stages import (
+    MIDDLE_SLOTS_PER_SEASON,
     VALID_AFFLICTIONS,
     VALID_EFFECT_KEYS,
     Choice,
     ContentError,
     DEFAULT_CONTENT_PATH,
     apply_choice,
+    build_journey,
     choice_is_available,
     load_stages,
-    stage_season,
+    stages_by_id,
 )
-from fernweh.state import GameState
+from fernweh.state import SEASONS, STAGES_PER_SEASON, GameState
 
 
 class _FixedRandom:
@@ -48,8 +51,9 @@ def _choice(**overrides) -> Choice:
 def test_loads_real_content_file() -> None:
     stages = load_stages()
     assert len(stages) == 20
-    assert stages[0].index == 0
+    assert stages[0].id == "spring_0"
     assert stages[0].season == "spring"
+    assert stages[0].role == "opener"
 
 
 def test_full_content_has_five_stages_per_season() -> None:
@@ -88,11 +92,48 @@ def test_stage_has_two_or_three_choices() -> None:
         assert 2 <= len(stage.choices) <= 3
 
 
-def test_stage_season_matches_index() -> None:
-    assert stage_season(0) == "spring"
-    assert stage_season(5) == "summer"
-    assert stage_season(10) == "autumn"
-    assert stage_season(15) == "winter"
+def test_build_journey_has_full_season_order() -> None:
+    # Whatever middles are picked, a journey is always STAGES_PER_SEASON stages
+    # per season, walking the seasons in their fixed order.
+    stages = load_stages()
+    by_id = stages_by_id(stages)
+    plan = build_journey(stages, random.Random(1))
+    assert len(plan) == STAGES_PER_SEASON * len(SEASONS)
+    seasons_in_plan = [by_id[sid].season for sid in plan]
+    expected = [season for season in SEASONS for _ in range(STAGES_PER_SEASON)]
+    assert seasons_in_plan == expected
+
+
+def test_build_journey_opens_and_closes_each_season() -> None:
+    # Each season's block starts with its opener and ends with its closer;
+    # every stage between them is a middle.
+    stages = load_stages()
+    by_id = stages_by_id(stages)
+    plan = build_journey(stages, random.Random(2))
+    for block in range(len(SEASONS)):
+        chunk = plan[block * STAGES_PER_SEASON : (block + 1) * STAGES_PER_SEASON]
+        roles = [by_id[sid].role for sid in chunk]
+        assert roles[0] == "opener"
+        assert roles[-1] == "closer"
+        assert roles[1:-1] == ["middle"] * MIDDLE_SLOTS_PER_SEASON
+
+
+def test_build_journey_only_uses_real_stage_ids() -> None:
+    stages = load_stages()
+    valid_ids = set(stages_by_id(stages))
+    plan = build_journey(stages, random.Random(3))
+    assert set(plan).issubset(valid_ids)
+    # No stage repeats within a single journey.
+    assert len(plan) == len(set(plan))
+
+
+def test_build_journey_varies_between_seeds() -> None:
+    # Different journeys should differ (order and/or selection of middles) —
+    # that's the whole point. Compared across several seeds so the test isn't
+    # flaky on an unlucky pair that happens to match.
+    stages = load_stages()
+    plans = {tuple(build_journey(stages, random.Random(seed))) for seed in range(8)}
+    assert len(plans) > 1
 
 
 def test_rejects_invalid_effect_key(tmp_path) -> None:
@@ -134,19 +175,61 @@ def test_rejects_wrong_choice_count(tmp_path) -> None:
         load_stages(path)
 
 
-def test_rejects_noncontiguous_stage_ids(tmp_path) -> None:
-    stage_template = {
-        "season": "spring",
-        "scene": {"description": "x", "weather": "clear"},
-        "situation": "x",
-        "choices": [
-            {"id": "a", "text": "a", "outcome": "a", "effects": {}},
-            {"id": "b", "text": "b", "outcome": "b", "effects": {}},
-        ],
-    }
-    bad_content = {"stages": [{"id": 0, **stage_template}, {"id": 2, **stage_template}]}
+def _full_pool_stages() -> list[dict]:
+    """A minimal but valid pool: every season with an opener, its middles, a closer."""
+    stages = []
+    for season in SEASONS:
+        for slot in range(STAGES_PER_SEASON):
+            role = (
+                "opener" if slot == 0 else "closer" if slot == STAGES_PER_SEASON - 1 else "middle"
+            )
+            stages.append(
+                {
+                    "id": f"{season}_{slot}",
+                    "season": season,
+                    "role": role,
+                    "scene": {"description": "x", "weather": "clear"},
+                    "situation": "x",
+                    "choices": [
+                        {"id": f"{season}_{slot}_a", "text": "a", "outcome": "a", "effects": {}},
+                        {"id": f"{season}_{slot}_b", "text": "b", "outcome": "b", "effects": {}},
+                    ],
+                }
+            )
+    return stages
+
+
+def test_accepts_valid_full_pool(tmp_path) -> None:
+    path = tmp_path / "ok.json"
+    path.write_text(json.dumps({"stages": _full_pool_stages()}))
+    assert len(load_stages(path)) == STAGES_PER_SEASON * len(SEASONS)
+
+
+def test_rejects_duplicate_stage_ids(tmp_path) -> None:
+    stages = _full_pool_stages()
+    stages[1]["id"] = stages[0]["id"]  # collide two ids
     path = tmp_path / "bad.json"
-    path.write_text(json.dumps(bad_content))
+    path.write_text(json.dumps({"stages": stages}))
+    with pytest.raises(ContentError):
+        load_stages(path)
+
+
+def test_rejects_season_without_closer(tmp_path) -> None:
+    stages = _full_pool_stages()
+    # Turn spring's closer into an extra middle, leaving spring with no closer.
+    spring_closer = next(s for s in stages if s["season"] == "spring" and s["role"] == "closer")
+    spring_closer["role"] = "middle"
+    path = tmp_path / "bad.json"
+    path.write_text(json.dumps({"stages": stages}))
+    with pytest.raises(ContentError):
+        load_stages(path)
+
+
+def test_rejects_unknown_role(tmp_path) -> None:
+    stages = _full_pool_stages()
+    stages[1]["role"] = "interlude"
+    path = tmp_path / "bad.json"
+    path.write_text(json.dumps({"stages": stages}))
     with pytest.raises(ContentError):
         load_stages(path)
 

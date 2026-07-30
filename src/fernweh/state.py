@@ -36,6 +36,14 @@ class GameState:
     energy: int = MAX_ENERGY
     supplies: int = MAX_SUPPLIES
     stage_index: int = 0
+    # The ordered stage ids this playthrough actually runs, chosen per journey
+    # by `stages.build_journey` (spring -> winter, opener + random middles +
+    # closer per season). `stage_index` indexes into this, not into the full
+    # authored pool — so which questions appear differs between journeys while
+    # the season order stays fixed. Persisted with the save so resuming a
+    # journey replays the exact same selected stages, not a fresh reshuffle.
+    # Empty only on the placeholder state before a real journey has begun.
+    plan: list[str] = field(default_factory=list)
     companions: list[Companion] = field(default_factory=list)
     memories: list[str] = field(default_factory=list)
     afflictions: set[str] = field(default_factory=set)
@@ -104,7 +112,11 @@ class GameState:
         # (failure or completion) can't resurrect it or skip stages.
         if self.ended:
             return
-        if self.stage_index >= TOTAL_STAGES - 1:
+        # The journey's length is the chosen plan's length once a real journey
+        # is under way; the placeholder pre-journey state has no plan, so it
+        # falls back to the nominal TOTAL_STAGES.
+        last_index = (len(self.plan) if self.plan else TOTAL_STAGES) - 1
+        if self.stage_index >= last_index:
             self.ended = True
             self.end_reason = "completed"
         else:

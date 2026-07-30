@@ -19,6 +19,23 @@ from fernweh.state import SEASONS, STAGES_PER_SEASON, Companion, GameState
 VALID_EFFECT_KEYS = frozenset({"energy", "supplies"})
 VALID_AFFLICTIONS = frozenset({"exhausted", "ill", "frostbitten"})
 
+# Each stage plays one of three structural roles within its season, which is
+# what lets a journey be reshuffled without the story falling apart:
+#   - "opener": the season's fixed first beat (arriving into the season).
+#   - "closer": the season's fixed last beat (the transition into the next).
+#   - "middle": interchangeable beats in between, drawn from a pool.
+# `build_journey` keeps opener first and closer last, and randomly picks which
+# middles fill the slots between them — so the arc of each season (and the
+# spring -> winter order overall) is always coherent while the specific
+# middle stages differ from one playthrough to the next.
+VALID_STAGE_ROLES = frozenset({"opener", "middle", "closer"})
+# How many interchangeable middle stages sit between a season's opener and
+# closer. Derived from STAGES_PER_SEASON so the selected journey still has
+# exactly STAGES_PER_SEASON stages per season (1 opener + middles + 1 closer),
+# which keeps season boundaries on the STAGES_PER_SEASON grid the rest of the
+# engine (season derivation, save summaries) already assumes.
+MIDDLE_SLOTS_PER_SEASON = STAGES_PER_SEASON - 2
+
 # A scene character's look/pose vocabulary. Kept as plain strings validated
 # against these fixed sets rather than raw colors, since this module can't
 # import `scenes.py` (the pure content/logic layer never imports the
@@ -105,8 +122,14 @@ class SceneCharacter:
 class Stage:
     """A single stage: a scene, a situation, and its choices."""
 
-    index: int
+    # A stable string id (e.g. "spring_stream"), used to reference a stage from
+    # a saved journey plan — journeys no longer run the stages in file order,
+    # so a positional integer index would be meaningless across playthroughs.
+    id: str
     season: str
+    # This stage's structural role within its season: "opener", "middle", or
+    # "closer" (see VALID_STAGE_ROLES). Drives how `build_journey` places it.
+    role: str
     scene: dict[str, str]
     situation: str
     choices: tuple[Choice, ...]
@@ -118,18 +141,68 @@ class Stage:
 
 
 def load_stages(path: Path | None = None) -> list[Stage]:
-    """Load, validate, and return all stages from a JSON content file."""
+    """Load, validate, and return the full stage pool from a JSON content file.
+
+    The result is the whole authored pool, not a single playthrough's sequence
+    — `build_journey` selects one journey's worth of stages from it. Validation
+    guarantees every season has the pieces `build_journey` needs (exactly one
+    opener and closer, and enough middles to fill the slots between them).
+    """
     source = path or DEFAULT_CONTENT_PATH
     data = json.loads(Path(source).read_text())
     stages = [_parse_stage(raw) for raw in data["stages"]]
-    _validate_stage_sequence(stages)
+    _validate_pool(stages)
     return stages
 
 
-def stage_season(stage_index: int) -> str:
-    """Return the season name expected for a given stage index."""
-    season_number = min(stage_index // STAGES_PER_SEASON, len(SEASONS) - 1)
-    return SEASONS[season_number]
+def stages_by_id(stages: list[Stage]) -> dict[str, Stage]:
+    """Index a stage pool by id, for resolving a journey plan's ids back to stages."""
+    return {stage.id: stage for stage in stages}
+
+
+def build_journey(stages: list[Stage], rng: random.Random) -> list[str]:
+    """Pick one playthrough's ordered sequence of stage ids from the full pool.
+
+    Walks the seasons in their fixed SEASONS order (spring -> winter) and, for
+    each, lays down its single opener, then a random selection of its middle
+    stages shuffled into the slots between, then its single closer. The result
+    is always exactly STAGES_PER_SEASON stages per season in season order, so
+    the overall arc stays coherent while which middles appear — and in what
+    order — differs from one journey to the next. Returns stage ids (not Stage
+    objects) because that's what a save persists to reconstruct the journey.
+    """
+    plan: list[str] = []
+    for season in SEASONS:
+        season_stages = [s for s in stages if s.season == season]
+        opener = next(s for s in season_stages if s.role == "opener")
+        closer = next(s for s in season_stages if s.role == "closer")
+        middles = [s for s in season_stages if s.role == "middle"]
+        chosen = rng.sample(middles, MIDDLE_SLOTS_PER_SEASON)
+        plan.append(opener.id)
+        plan.extend(stage.id for stage in chosen)
+        plan.append(closer.id)
+    return plan
+
+
+def canonical_journey(stages: list[Stage]) -> list[str]:
+    """A deterministic journey plan (opener + first middles + closer, in pool order).
+
+    Same shape as `build_journey` but with no randomness, so it's stable. Used
+    to migrate a pre-randomization save that has no stored plan: it keeps the
+    game from crashing on `plan[stage_index]` while preserving the season
+    structure, at the cost of the remaining stages possibly differing slightly
+    from that old save's original fixed order.
+    """
+    plan: list[str] = []
+    for season in SEASONS:
+        season_stages = [s for s in stages if s.season == season]
+        opener = next(s for s in season_stages if s.role == "opener")
+        closer = next(s for s in season_stages if s.role == "closer")
+        middles = [s for s in season_stages if s.role == "middle"]
+        plan.append(opener.id)
+        plan.extend(stage.id for stage in middles[:MIDDLE_SLOTS_PER_SEASON])
+        plan.append(closer.id)
+    return plan
 
 
 def choice_is_available(choice: Choice, active_afflictions: set[str]) -> bool:
@@ -190,25 +263,26 @@ def apply_choice(state: GameState, choice: Choice, rng: random.Random | None = N
 
 
 def _parse_stage(raw: dict[str, Any]) -> Stage:
+    stage_id = raw["id"]
     choices = tuple(_parse_choice(c, raw["season"]) for c in raw["choices"])
     if not 2 <= len(choices) <= 3:
-        raise ContentError(f"stage {raw.get('id')} must have 2-3 choices, got {len(choices)}")
-    # `season` is declared explicitly in the JSON *and* cross-checked here against
-    # what the stage index implies — catches a copy-paste error where a stage
-    # ends up filed under the wrong season heading in the content file.
-    expected_season = stage_season(raw["id"])
-    if raw["season"] != expected_season:
-        raise ContentError(
-            f"stage {raw['id']} declares season '{raw['season']}', expected '{expected_season}'"
-        )
+        raise ContentError(f"stage {stage_id} must have 2-3 choices, got {len(choices)}")
+    # Season and role are both declared explicitly and validated against their
+    # fixed vocabularies — a mistyped season would silently misplace a stage in
+    # the journey, and a mistyped role would break `build_journey`'s selection.
+    if raw["season"] not in SEASONS:
+        raise ContentError(f"stage {stage_id} declares unknown season '{raw['season']}'")
+    if raw["role"] not in VALID_STAGE_ROLES:
+        raise ContentError(f"stage {stage_id} declares unknown role '{raw['role']}'")
     return Stage(
-        index=raw["id"],
+        id=stage_id,
         season=raw["season"],
+        role=raw["role"],
         scene=raw["scene"],
         situation=raw["situation"],
         choices=choices,
-        character=_parse_character(raw["scene"].get("character"), raw.get("id")),
-        landmark=_parse_landmark(raw["scene"].get("landmark"), raw.get("id")),
+        character=_parse_character(raw["scene"].get("character"), stage_id),
+        landmark=_parse_landmark(raw["scene"].get("landmark"), stage_id),
     )
 
 
@@ -293,6 +367,31 @@ def _parse_choice(raw: dict[str, Any], season: str) -> Choice:
     )
 
 
-def _validate_stage_sequence(stages: list[Stage]) -> None:
-    if [s.index for s in stages] != list(range(len(stages))):
-        raise ContentError("stage ids must be a contiguous sequence starting at 0")
+def _validate_pool(stages: list[Stage]) -> None:
+    """Check the stage pool has everything `build_journey` needs, per season.
+
+    Rather than a contiguous integer sequence (journeys no longer run stages in
+    file order), the invariant now is: ids are unique, every season is present,
+    and each season has exactly one opener, exactly one closer, and at least
+    MIDDLE_SLOTS_PER_SEASON middles to choose from. Anything else would make
+    `build_journey` unable to lay down a full, coherent season.
+    """
+    ids = [s.id for s in stages]
+    duplicates = {i for i in ids if ids.count(i) > 1}
+    if duplicates:
+        raise ContentError(f"duplicate stage ids: {sorted(duplicates)}")
+
+    for season in SEASONS:
+        season_stages = [s for s in stages if s.season == season]
+        openers = [s for s in season_stages if s.role == "opener"]
+        closers = [s for s in season_stages if s.role == "closer"]
+        middles = [s for s in season_stages if s.role == "middle"]
+        if len(openers) != 1:
+            raise ContentError(f"season '{season}' must have exactly 1 opener, got {len(openers)}")
+        if len(closers) != 1:
+            raise ContentError(f"season '{season}' must have exactly 1 closer, got {len(closers)}")
+        if len(middles) < MIDDLE_SLOTS_PER_SEASON:
+            raise ContentError(
+                f"season '{season}' needs at least {MIDDLE_SLOTS_PER_SEASON} middles, "
+                f"got {len(middles)}"
+            )
