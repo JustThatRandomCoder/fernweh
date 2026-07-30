@@ -167,6 +167,10 @@ def _state_to_dict(state: GameState) -> dict[str, Any]:
         "energy": state.energy,
         "supplies": state.supplies,
         "stage_index": state.stage_index,
+        # The chosen journey plan must be saved: without it, resuming would
+        # re-roll a different sequence of stages and the story would change
+        # under the player mid-journey.
+        "plan": list(state.plan),
         "companions": [
             {
                 "id": c.id,
@@ -188,6 +192,10 @@ def _state_from_dict(data: dict[str, Any]) -> GameState:
         energy=data["energy"],
         supplies=data["supplies"],
         stage_index=data["stage_index"],
+        # Older saves (pre-randomization) have no plan; an empty plan is fine
+        # for a finished journey being revisited, and `game.py` guards the
+        # in-progress case.
+        plan=list(data.get("plan", [])),
         companions=[
             Companion(
                 id=c["id"],

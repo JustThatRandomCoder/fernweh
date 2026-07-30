@@ -1,8 +1,9 @@
 {
   "stages": [
     {
-      "id": 0,
+      "id": "spring_0",
       "season": "spring",
+      "role": "opener",
       "scene": {
         "description": "A muddy trailhead at the edge of town, rain still soft in the air.",
         "weather": "drizzle"
@@ -12,27 +13,39 @@
         {
           "id": "spring_0_go_now",
           "text": "Go now, while the rain is only a whisper.",
-          "effects": { "energy": -8, "supplies": -2 },
+          "effects": {
+            "energy": -8,
+            "supplies": -2
+          },
           "outcome": "You walk into it. The rain finds the back of your collar within the hour, but the road is already behind you."
         },
         {
           "id": "spring_0_wait",
           "text": "Wait under the eaves for it to ease.",
-          "effects": { "energy": -2, "supplies": -3 },
+          "effects": {
+            "energy": -2,
+            "supplies": -3
+          },
           "outcome": "You wait longer than you meant to. By the time you leave, the sky has thinned to a pale grey and the road is quieter for it."
         },
         {
           "id": "spring_0_shortcut",
           "text": "Cut through the wet field to save the hour.",
-          "effects": { "energy": -6, "supplies": -1 },
-          "affliction_chance": { "ill": 0.12 },
+          "effects": {
+            "energy": -6,
+            "supplies": -1
+          },
+          "affliction_chance": {
+            "ill": 0.12
+          },
           "outcome": "The field is slower than it looks, and colder. You come out the other side with mud to the knee and a chill you can't quite shake."
         }
       ]
     },
     {
-      "id": 1,
+      "id": "spring_1",
       "season": "spring",
+      "role": "middle",
       "scene": {
         "description": "A fork in the road beside a stone well, blossom just starting on the trees.",
         "weather": "clear",
@@ -50,7 +63,9 @@
         {
           "id": "spring_1_invite",
           "text": "Ask if she wants company on the road.",
-          "effects": { "supplies": -3 },
+          "effects": {
+            "supplies": -3
+          },
           "companion": {
             "id": "mira",
             "name": "Mira",
@@ -61,21 +76,27 @@
         {
           "id": "spring_1_share",
           "text": "Share what food you can spare, then walk on alone.",
-          "effects": { "supplies": -5, "energy": -1 },
+          "effects": {
+            "supplies": -5,
+            "energy": -1
+          },
           "memory": "A stranger's quiet thanks at a well you never learned the name of.",
           "outcome": "She eats slowly, watching the road rather than you. When you leave she raises a hand, and you carry that small weight with you."
         },
         {
           "id": "spring_1_pass",
           "text": "Nod and keep walking.",
-          "effects": { "energy": -3 },
+          "effects": {
+            "energy": -3
+          },
           "outcome": "She doesn't call after you. The well disappears behind a bend, and the road narrows again."
         }
       ]
     },
     {
-      "id": 2,
+      "id": "spring_2",
       "season": "spring",
+      "role": "middle",
       "scene": {
         "description": "A shallow stream crossing under new leaves, sunlight breaking through in patches.",
         "weather": "clear",
@@ -87,28 +108,40 @@
           "id": "spring_2_rest",
           "text": "Sit on the bank a while before crossing.",
           "rest": true,
-          "effects": { "energy": 15, "supplies": -2 },
-          "cures": ["exhausted"],
+          "effects": {
+            "energy": 15,
+            "supplies": -2
+          },
+          "cures": [
+            "exhausted"
+          ],
           "outcome": "The water talks to itself over the stones. You feel some of the last few days loosen in your shoulders."
         },
         {
           "id": "spring_2_stone",
           "text": "Wade over and see what's catching the light.",
-          "effects": { "energy": -4, "supplies": -1 },
+          "effects": {
+            "energy": -4,
+            "supplies": -1
+          },
           "memory": "A smooth river stone, pale as bone, pocketed without knowing why.",
           "outcome": "It's only a stone, smoothed pale by years of current. You take it anyway."
         },
         {
           "id": "spring_2_push_on",
           "text": "Cross quickly and keep the pace.",
-          "effects": { "energy": -9, "supplies": -2 },
+          "effects": {
+            "energy": -9,
+            "supplies": -2
+          },
           "outcome": "You're across before the cold really reaches you, and the road climbs away from the water on the other side."
         }
       ]
     },
     {
-      "id": 3,
+      "id": "spring_3",
       "season": "spring",
+      "role": "middle",
       "scene": {
         "description": "An old footbridge over a gorge, planks silvered and loose in places.",
         "weather": "overcast",
@@ -119,7 +152,9 @@
         {
           "id": "spring_3_run",
           "text": "Cross quickly, before you can think better of it.",
-          "effects": { "energy": -7 },
+          "effects": {
+            "energy": -7
+          },
           "unavailable_if": "ill",
           "unavailable_reason": "your legs won't hold a run like that right now",
           "outcome": "The planks complain the whole way, but they hold. You don't look down until you're across."
@@ -127,20 +162,103 @@
         {
           "id": "spring_3_careful",
           "text": "Cross slowly, testing each board.",
-          "effects": { "energy": -10 },
+          "effects": {
+            "energy": -10
+          },
           "outcome": "It takes twice as long as it should. Somewhere in the middle you stop trusting the bridge and start trusting your own feet instead."
         },
         {
           "id": "spring_3_around",
           "text": "Take the longer path around the gorge.",
-          "effects": { "energy": -12, "supplies": -2 },
+          "effects": {
+            "energy": -12,
+            "supplies": -2
+          },
           "outcome": "The detour costs you the afternoon, but the ground under you never once feels uncertain."
         }
       ]
     },
     {
-      "id": 4,
+      "id": "spring_millpond",
       "season": "spring",
+      "role": "middle",
+      "scene": {
+        "description": "A watermill beside a pond swollen with spring meltwater, its wheel still.",
+        "weather": "clear"
+      },
+      "situation": "The mill stands idle, the miller nowhere in sight. A sack of fresh-milled flour leans against the door, and the pond behind it is high and bright with snowmelt.",
+      "choices": [
+        {
+          "id": "spring_millpond_pay",
+          "text": "Leave a coin on the sill and take a measure of flour.",
+          "effects": {
+            "supplies": 8,
+            "energy": -1
+          },
+          "outcome": "You take only what seems fair and leave more than the flour is worth. The wheel creaks once behind you, as if in thanks."
+        },
+        {
+          "id": "spring_millpond_wait",
+          "text": "Wait a while for the miller to return.",
+          "effects": {
+            "energy": -4,
+            "supplies": -1
+          },
+          "memory": "A miller who never came, and the patient hour spent waiting by still water.",
+          "outcome": "Nobody comes. When the light shifts you give up waiting, oddly reluctant to leave the quiet of the place."
+        },
+        {
+          "id": "spring_millpond_pass",
+          "text": "Leave the mill to itself and walk on.",
+          "effects": {
+            "energy": -3
+          },
+          "outcome": "The pond slides out of view behind the trees, and the road picks up the sound of running water for a while yet."
+        }
+      ]
+    },
+    {
+      "id": "spring_shrine",
+      "season": "spring",
+      "role": "middle",
+      "scene": {
+        "description": "A small roadside shrine, its stones furred green with moss, under dripping trees.",
+        "weather": "drizzle"
+      },
+      "situation": "A little shrine sits back from the road, its stones soft with moss. The stubs of old candles crowd the ledge, left by travelers who passed this way before you.",
+      "choices": [
+        {
+          "id": "spring_shrine_offer",
+          "text": "Leave a small offering and a moment's quiet.",
+          "effects": {
+            "supplies": -2
+          },
+          "memory": "A candle-stub lit at a shrine whose saint you never learned the name of.",
+          "outcome": "You don't know the prayer that belongs here, so you just stand a moment in the drip and the green. It seems to be enough."
+        },
+        {
+          "id": "spring_shrine_shelter",
+          "text": "Shelter under the shrine's eave until the drizzle eases.",
+          "effects": {
+            "energy": 6,
+            "supplies": -1
+          },
+          "outcome": "The rain finds everything but the narrow dry strip beneath the eave. You wait it out with the quiet company of the candle stubs."
+        },
+        {
+          "id": "spring_shrine_press",
+          "text": "Bow your head once and press on through the wet.",
+          "effects": {
+            "energy": -6
+          },
+          "outcome": "The drizzle keeps up the whole way, but the shrine stays with you a mile or two, the way small kindnesses do."
+        }
+      ]
+    },
+    {
+      "id": "spring_4",
+      "season": "spring",
+      "role": "closer",
       "scene": {
         "description": "The last blossoms of the season scattering across a hillside track.",
         "weather": "breezy",
@@ -157,7 +275,9 @@
         {
           "id": "spring_4_invite",
           "text": "Offer to travel together a while.",
-          "effects": { "supplies": -3 },
+          "effects": {
+            "supplies": -3
+          },
           "companion": {
             "id": "sable",
             "name": "Sable",
@@ -168,21 +288,26 @@
         {
           "id": "spring_4_ask",
           "text": "Ask what she's gathering.",
-          "effects": { "energy": -3 },
+          "effects": {
+            "energy": -3
+          },
           "memory": "The name of a small white flower, already half-forgotten.",
           "outcome": "She tells you, and you forget the name within the hour, but not the way she said it — like it mattered."
         },
         {
           "id": "spring_4_pass",
           "text": "Leave her to her work and keep walking.",
-          "effects": { "energy": -4 },
+          "effects": {
+            "energy": -4
+          },
           "outcome": "The hillside evens out ahead of you, and somewhere behind, summer is already arriving without you."
         }
       ]
     },
     {
-      "id": 5,
+      "id": "summer_5",
       "season": "summer",
+      "role": "opener",
       "scene": {
         "description": "A dry, sunbaked plain shimmering at the edges, a lone tree offering the only shade for miles.",
         "weather": "heatwave",
@@ -194,27 +319,36 @@
           "id": "summer_5_rest",
           "text": "Rest in the shade until the worst of the heat passes.",
           "rest": true,
-          "effects": { "energy": 10, "supplies": -3 },
+          "effects": {
+            "energy": 10,
+            "supplies": -3
+          },
           "outcome": "You wait it out, watching the heat ripple over the plain. It's slow, but you leave steadier than you arrived."
         },
         {
           "id": "summer_5_push",
           "text": "Push through while there's still light left.",
-          "effects": { "energy": -14, "supplies": -2 },
+          "effects": {
+            "energy": -14,
+            "supplies": -2
+          },
           "outcome": "The sun doesn't let up once. By the time the plain ends, your shirt is stiff with dried salt."
         },
         {
           "id": "summer_5_share_water",
           "text": "Share water with a traveler slumped by the roadside.",
-          "effects": { "supplies": -6 },
+          "effects": {
+            "supplies": -6
+          },
           "memory": "A stranger's hand, shaking, closing around a water skin.",
           "outcome": "He doesn't say much, just drinks like it's the first water he's seen in a day. Maybe it is."
         }
       ]
     },
     {
-      "id": 6,
+      "id": "summer_6",
       "season": "summer",
+      "role": "middle",
       "scene": {
         "description": "A dusty crossroads market, awnings flapping in the heat, voices calling out prices.",
         "weather": "clear",
@@ -232,7 +366,9 @@
         {
           "id": "summer_6_invite",
           "text": "Ask if she'd rather walk than sell.",
-          "effects": { "supplies": -3 },
+          "effects": {
+            "supplies": -3
+          },
           "companion": {
             "id": "talia",
             "name": "Talia",
@@ -243,20 +379,26 @@
         {
           "id": "summer_6_trade",
           "text": "Trade what you can spare for dried supplies.",
-          "effects": { "supplies": 12, "energy": -2 },
+          "effects": {
+            "supplies": 12,
+            "energy": -2
+          },
           "outcome": "The trader haggles out of habit more than need. You leave with your pack heavier and your pockets lighter."
         },
         {
           "id": "summer_6_pass",
           "text": "Keep to the edge of the market and move on.",
-          "effects": { "energy": -3 },
+          "effects": {
+            "energy": -3
+          },
           "outcome": "The noise of the market fades behind you, and the road opens back out into quiet, dry fields."
         }
       ]
     },
     {
-      "id": 7,
+      "id": "summer_7",
       "season": "summer",
+      "role": "middle",
       "scene": {
         "description": "A cracked riverbed, the water reduced to a thin, muddy trickle.",
         "weather": "heatwave",
@@ -267,30 +409,43 @@
         {
           "id": "summer_7_sprint",
           "text": "Move fast to clear the riverbed before dark.",
-          "effects": { "energy": -16 },
+          "effects": {
+            "energy": -16
+          },
           "unavailable_if": "exhausted",
           "unavailable_reason": "you don't have that kind of pace left in you",
-          "affliction_chance": { "ill": 0.08 },
+          "affliction_chance": {
+            "ill": 0.08
+          },
           "outcome": "You make it, but only just. Your own heartbeat is the loudest thing on the whole plain."
         },
         {
           "id": "summer_7_steady",
           "text": "Keep a slow, steady pace and drink sparingly.",
-          "effects": { "energy": -6, "supplies": -3 },
+          "effects": {
+            "energy": -6,
+            "supplies": -3
+          },
           "outcome": "It's not fast, but it's honest walking. The far bank arrives right about when you expect it to."
         },
         {
           "id": "summer_7_camp_early",
           "text": "Make camp early and let the heat break overnight.",
-          "effects": { "energy": 8, "supplies": -4 },
-          "cures": ["exhausted"],
+          "effects": {
+            "energy": 8,
+            "supplies": -4
+          },
+          "cures": [
+            "exhausted"
+          ],
           "outcome": "The night cools faster than the day promised. You sleep better than you have in a while."
         }
       ]
     },
     {
-      "id": 8,
+      "id": "summer_8",
       "season": "summer",
+      "role": "middle",
       "scene": {
         "description": "A shaded orchard at the edge of a quiet village, fruit heavy on low branches.",
         "weather": "warm",
@@ -301,28 +456,124 @@
         {
           "id": "summer_8_forage",
           "text": "Take only what the orchard won't miss.",
-          "effects": { "supplies": 8, "energy": -2 },
+          "effects": {
+            "supplies": 8,
+            "energy": -2
+          },
           "outcome": "You eat well and leave the rest. Whoever tends this place will never know you passed through."
         },
         {
           "id": "summer_8_village",
           "text": "Pay for a proper meal in the village.",
-          "effects": { "supplies": -8, "energy": 12 },
-          "cures": ["ill"],
+          "effects": {
+            "supplies": -8,
+            "energy": 12
+          },
+          "cures": [
+            "ill"
+          ],
           "outcome": "It's the first hot meal in days, and it does more for you than the food alone should."
         },
         {
           "id": "summer_8_keepsake",
           "text": "Buy something small and useless from a stall, just to remember this place.",
-          "effects": { "supplies": -4 },
+          "effects": {
+            "supplies": -4
+          },
           "memory": "A carved wooden bird, bought for no reason but that it caught the light.",
           "outcome": "It's not worth what you paid for it. You keep it anyway."
         }
       ]
     },
     {
-      "id": 9,
+      "id": "summer_thunderhead",
       "season": "summer",
+      "role": "middle",
+      "scene": {
+        "description": "A wide plain under stacking thunderheads, the light gone bruised and heavy.",
+        "weather": "heatwave"
+      },
+      "situation": "Thunderheads pile up along the horizon and the air goes still and heavy. The storm might break over you or slide past to the east — there's no telling yet.",
+      "choices": [
+        {
+          "id": "summer_thunderhead_cover",
+          "text": "Push hard to reach the treeline before it breaks.",
+          "effects": {
+            "energy": -10
+          },
+          "outcome": "You make the trees as the first fat drops hit, and stand under them breathing hard while the plain behind you turns to grey rain."
+        },
+        {
+          "id": "summer_thunderhead_wait",
+          "text": "Wait it out under a rocky outcrop.",
+          "effects": {
+            "energy": 6,
+            "supplies": -2
+          },
+          "cures": [
+            "exhausted"
+          ],
+          "outcome": "The storm rolls through in a spectacular half-hour and leaves the air washed clean. You set off again into a cooler, kinder afternoon."
+        },
+        {
+          "id": "summer_thunderhead_risk",
+          "text": "Chance the open road and keep moving.",
+          "effects": {
+            "energy": -6
+          },
+          "affliction_chance": {
+            "ill": 0.1
+          },
+          "outcome": "The storm clips you with its edge — enough rain to soak you through, enough wind to make you regret not stopping."
+        }
+      ]
+    },
+    {
+      "id": "summer_reapers",
+      "season": "summer",
+      "role": "middle",
+      "scene": {
+        "description": "A gold field at the roadside, a line of reapers working slow in the heat.",
+        "weather": "clear"
+      },
+      "situation": "A line of reapers works a field of gold at the road's edge, scythes keeping a slow shared time. One of them straightens, catches your eye, and waves you over toward the shade where their meal is laid out.",
+      "choices": [
+        {
+          "id": "summer_reapers_meal",
+          "text": "Join them for the midday meal.",
+          "effects": {
+            "energy": 12,
+            "supplies": -3
+          },
+          "cures": [
+            "ill"
+          ],
+          "outcome": "They feed you like one of their own and ask for nothing but the news of the road. You leave heavier and steadier than you came."
+        },
+        {
+          "id": "summer_reapers_work",
+          "text": "Lend an hour to the harvest in exchange for provisions.",
+          "effects": {
+            "energy": -6,
+            "supplies": 6
+          },
+          "outcome": "An hour with a borrowed scythe leaves your back complaining, but they send you off with a full sack and no argument."
+        },
+        {
+          "id": "summer_reapers_pass",
+          "text": "Raise a hand in thanks and keep walking.",
+          "effects": {
+            "energy": -3
+          },
+          "memory": "The sound of a dozen scythes keeping time in the heat of a field you never crossed.",
+          "outcome": "You wave the offer off and walk on, the rhythm of the scythes following you down the road for a while."
+        }
+      ]
+    },
+    {
+      "id": "summer_9",
+      "season": "summer",
+      "role": "closer",
       "scene": {
         "description": "A ridge overlooking the valley, the first hint of amber creeping into the green below.",
         "weather": "clear"
@@ -333,27 +584,35 @@
           "id": "summer_9_talk",
           "text": "Sit and talk a while before the descent.",
           "rest": true,
-          "effects": { "energy": 10, "supplies": -2 },
+          "effects": {
+            "energy": 10,
+            "supplies": -2
+          },
           "outcome": "Nobody says anything important, and somehow that's exactly what the moment needed."
         },
         {
           "id": "summer_9_descend",
           "text": "Start down into the valley without lingering.",
-          "effects": { "energy": -8 },
+          "effects": {
+            "energy": -8
+          },
           "outcome": "The path down is steep and fast, and summer falls away behind you almost too easily."
         },
         {
           "id": "summer_9_mark",
           "text": "Take a moment alone at the ridge's edge.",
-          "effects": { "energy": -1 },
+          "effects": {
+            "energy": -1
+          },
           "memory": "The exact color of the valley the day summer started to end.",
           "outcome": "You don't tell anyone why you stopped. Some things are worth keeping just for yourself."
         }
       ]
     },
     {
-      "id": 10,
+      "id": "autumn_10",
       "season": "autumn",
+      "role": "opener",
       "scene": {
         "description": "A forest track thick with fallen leaves, the canopy overhead gone amber and gold.",
         "weather": "falling_leaves"
@@ -363,28 +622,38 @@
         {
           "id": "autumn_10_careful",
           "text": "Pick your way through slowly, watching your footing.",
-          "effects": { "energy": -9 },
+          "effects": {
+            "energy": -9
+          },
           "outcome": "It's slow going, but you never once lose the path beneath the drift of leaves."
         },
         {
           "id": "autumn_10_hurry",
           "text": "Hurry through before the light goes.",
-          "effects": { "energy": -12, "supplies": -1 },
-          "affliction_chance": { "ill": 0.1 },
+          "effects": {
+            "energy": -12,
+            "supplies": -1
+          },
+          "affliction_chance": {
+            "ill": 0.1
+          },
           "outcome": "You misjudge a root twice and catch yourself both times. The light holds, barely."
         },
         {
           "id": "autumn_10_gather",
           "text": "Stop to gather a handful of fallen leaves.",
-          "effects": { "energy": -5 },
+          "effects": {
+            "energy": -5
+          },
           "memory": "A single amber leaf, pressed flat between two pages.",
           "outcome": "It's a small, foolish thing to carry. You carry it anyway."
         }
       ]
     },
     {
-      "id": 11,
+      "id": "autumn_11",
       "season": "autumn",
+      "role": "middle",
       "scene": {
         "description": "A woodcutter's clearing, smoke rising thin from a low chimney.",
         "weather": "overcast",
@@ -402,7 +671,9 @@
         {
           "id": "autumn_11_invite",
           "text": "Ask if he'd walk with you a while.",
-          "effects": { "supplies": -3 },
+          "effects": {
+            "supplies": -3
+          },
           "companion": {
             "id": "emet",
             "name": "Emet",
@@ -413,20 +684,26 @@
         {
           "id": "autumn_11_help",
           "text": "Help him finish stacking the wood before moving on.",
-          "effects": { "energy": -6, "supplies": 4 },
+          "effects": {
+            "energy": -6,
+            "supplies": 4
+          },
           "outcome": "He thanks you with a sack of provisions rather than words, which suits you both fine."
         },
         {
           "id": "autumn_11_pass",
           "text": "Nod back and keep to the road.",
-          "effects": { "energy": -3 },
+          "effects": {
+            "energy": -3
+          },
           "outcome": "The smoke from his chimney is the last thing you see before the trees close back in."
         }
       ]
     },
     {
-      "id": 12,
+      "id": "autumn_12",
       "season": "autumn",
+      "role": "middle",
       "scene": {
         "description": "A harvested field, stubble gold under a low, cooling sun.",
         "weather": "clear"
@@ -437,27 +714,38 @@
           "id": "autumn_12_rest",
           "text": "Make an early camp at the field's edge.",
           "rest": true,
-          "effects": { "energy": 14, "supplies": -3 },
-          "cures": ["exhausted"],
+          "effects": {
+            "energy": 14,
+            "supplies": -3
+          },
+          "cures": [
+            "exhausted"
+          ],
           "outcome": "The stubble is dry and the ground is flat, and you sleep better than the setting deserves."
         },
         {
           "id": "autumn_12_glean",
           "text": "Glean what the harvest left behind.",
-          "effects": { "supplies": 6, "energy": -3 },
+          "effects": {
+            "supplies": 6,
+            "energy": -3
+          },
           "outcome": "It's not much, but it's honest food, and nobody begrudges you for taking it."
         },
         {
           "id": "autumn_12_push",
           "text": "Cross the field quickly and keep moving.",
-          "effects": { "energy": -8 },
+          "effects": {
+            "energy": -8
+          },
           "outcome": "The treeline swallows the last of the daylight not long after you reach it."
         }
       ]
     },
     {
-      "id": 13,
+      "id": "autumn_13",
       "season": "autumn",
+      "role": "middle",
       "scene": {
         "description": "A narrow valley road, cold mist pooling low between the hills.",
         "weather": "mist",
@@ -468,21 +756,32 @@
         {
           "id": "autumn_13_healer",
           "text": "Stop at the healer's house.",
-          "effects": { "supplies": -6, "energy": 6 },
-          "cures": ["ill", "exhausted"],
+          "effects": {
+            "supplies": -6,
+            "energy": 6
+          },
+          "cures": [
+            "ill",
+            "exhausted"
+          ],
           "outcome": "She doesn't ask many questions, just puts a cup of something bitter in your hands and waits until it's gone."
         },
         {
           "id": "autumn_13_rest_roadside",
           "text": "Rest by the roadside instead.",
           "rest": true,
-          "effects": { "energy": 8, "supplies": -2 },
+          "effects": {
+            "energy": 8,
+            "supplies": -2
+          },
           "outcome": "It's not the same as a proper bed, but the mist thins a little while you sit, and that helps more than expected."
         },
         {
           "id": "autumn_13_push",
           "text": "Push through the mist without stopping.",
-          "effects": { "energy": -11 },
+          "effects": {
+            "energy": -11
+          },
           "unavailable_if": "ill",
           "unavailable_reason": "you can barely keep pace as it is",
           "outcome": "The mist never really breaks. You come out the other side more tired than the distance explains."
@@ -490,8 +789,90 @@
       ]
     },
     {
-      "id": 14,
+      "id": "autumn_cideryard",
       "season": "autumn",
+      "role": "middle",
+      "scene": {
+        "description": "An abandoned cider press in a yard of windfall apples going soft in the grass.",
+        "weather": "overcast"
+      },
+      "situation": "A cider press stands abandoned in a yard, and windfall apples lie thick in the wet grass, half of them already going soft. Whoever worked this place is long gone, and the wasps have it now.",
+      "choices": [
+        {
+          "id": "autumn_cideryard_gather",
+          "text": "Gather the sound apples still worth keeping.",
+          "effects": {
+            "supplies": 6,
+            "energy": -2
+          },
+          "outcome": "You fill a pocket with the firm ones and leave the rest to the wasps and the coming frost. It's honest enough."
+        },
+        {
+          "id": "autumn_cideryard_press",
+          "text": "Work the press for a little cider to carry.",
+          "effects": {
+            "supplies": 4,
+            "energy": -5
+          },
+          "outcome": "The press groans back to life under your weight, and you carry off a flask of something cloudy and sweet that won't last the week."
+        },
+        {
+          "id": "autumn_cideryard_keepsake",
+          "text": "Take one perfect apple and leave the yard to the wasps.",
+          "effects": {
+            "energy": -3
+          },
+          "memory": "A single unblemished apple carried a whole day before you finally ate it.",
+          "outcome": "You pick the one flawless apple in the whole soft, humming yard, and carry it a long way before it's gone."
+        }
+      ]
+    },
+    {
+      "id": "autumn_standing_stones",
+      "season": "autumn",
+      "role": "middle",
+      "scene": {
+        "description": "A ring of leaning standing stones on the ridge, older than any road.",
+        "weather": "cold_wind"
+      },
+      "situation": "A ring of standing stones leans on the high ground, greyed and lichened and older than any road that ever passed them. The wind moves through the ring with a sound almost like a voice.",
+      "choices": [
+        {
+          "id": "autumn_standing_stones_rest",
+          "text": "Rest in the lee of the stones, out of the wind.",
+          "rest": true,
+          "effects": {
+            "energy": 10,
+            "supplies": -1
+          },
+          "cures": [
+            "exhausted"
+          ],
+          "outcome": "The stones break the wind better than any wall, and you sit among them a while, oddly unwilling to hurry on."
+        },
+        {
+          "id": "autumn_standing_stones_walk",
+          "text": "Walk the ring once, the way the old stories say.",
+          "effects": {
+            "energy": -2
+          },
+          "memory": "A ring of grey stones on a cold ridge, and the wind's voice caught inside it.",
+          "outcome": "You don't believe in it, quite, but you walk the ring anyway, and something about the day feels marked afterward."
+        },
+        {
+          "id": "autumn_standing_stones_skirt",
+          "text": "Skirt around the ring and keep your pace.",
+          "effects": {
+            "energy": -4
+          },
+          "outcome": "You give the stones a wide berth for no reason you could name, and the wind's voice fades behind you as the road drops away."
+        }
+      ]
+    },
+    {
+      "id": "autumn_14",
+      "season": "autumn",
+      "role": "closer",
       "scene": {
         "description": "The last bare trees before the road climbs toward higher, colder ground.",
         "weather": "cold_wind"
@@ -501,27 +882,35 @@
         {
           "id": "autumn_14_prepare",
           "text": "Spend the day preparing gear for the cold ahead.",
-          "effects": { "supplies": -8, "energy": -2 },
+          "effects": {
+            "supplies": -8,
+            "energy": -2
+          },
           "outcome": "It costs you a day you'd rather not lose, but your pack is heavier with things that will matter soon."
         },
         {
           "id": "autumn_14_press",
           "text": "Press on toward the high ground before the weather turns.",
-          "effects": { "energy": -10 },
+          "effects": {
+            "energy": -10
+          },
           "outcome": "You beat the worst of it, but only just. The first flurries catch you within sight of the ridge."
         },
         {
           "id": "autumn_14_look_back",
           "text": "Stop and look back at the road already walked.",
-          "effects": { "energy": -2 },
+          "effects": {
+            "energy": -2
+          },
           "memory": "The whole autumn valley, seen once more before the climb.",
           "outcome": "From here the whole valley looks smaller than it felt at the time. You turn back to the climb without regret."
         }
       ]
     },
     {
-      "id": 15,
+      "id": "winter_15",
       "season": "winter",
+      "role": "opener",
       "scene": {
         "description": "The first real snowfall, settling quiet and white over a narrow mountain pass.",
         "weather": "snow",
@@ -532,27 +921,38 @@
         {
           "id": "winter_15_shelter",
           "text": "Take the time to shelter properly from the wind.",
-          "effects": { "energy": 6, "supplies": -3 },
+          "effects": {
+            "energy": 6,
+            "supplies": -3
+          },
           "outcome": "It's cramped and cold, but the walls hold the worst of the wind out, and that's enough."
         },
         {
           "id": "winter_15_push",
           "text": "Keep moving without stopping for shelter.",
-          "effects": { "energy": -12 },
-          "affliction_chance": { "frostbitten": 0.2 },
+          "effects": {
+            "energy": -12
+          },
+          "affliction_chance": {
+            "frostbitten": 0.2
+          },
           "outcome": "The wind finds every gap in your coat. By the far side of the pass, your fingers have stopped answering you properly."
         },
         {
           "id": "winter_15_quick_cover",
           "text": "Duck behind a rock ledge just long enough to catch your breath.",
-          "effects": { "energy": -4, "supplies": -1 },
+          "effects": {
+            "energy": -4,
+            "supplies": -1
+          },
           "outcome": "It's not real shelter, but it's something. You go back out into the snow a little steadier."
         }
       ]
     },
     {
-      "id": 16,
+      "id": "winter_16",
       "season": "winter",
+      "role": "middle",
       "scene": {
         "description": "A frozen creek bed threading between snow-heavy pines.",
         "weather": "snow"
@@ -562,28 +962,41 @@
         {
           "id": "winter_16_fire",
           "text": "Find the fire and warm your hands properly.",
-          "effects": { "energy": 10, "supplies": -2 },
-          "cures": ["frostbitten"],
+          "effects": {
+            "energy": 10,
+            "supplies": -2
+          },
+          "cures": [
+            "frostbitten"
+          ],
           "outcome": "Whoever built it is long gone, but the fire's still going. You sit with it longer than you mean to."
         },
         {
           "id": "winter_16_ignore",
           "text": "Keep walking and ignore the cold in your hands.",
-          "effects": { "energy": -9 },
-          "affliction_chance": { "frostbitten": 0.15 },
+          "effects": {
+            "energy": -9
+          },
+          "affliction_chance": {
+            "frostbitten": 0.15
+          },
           "outcome": "It's easier to ignore than it should be, which is its own kind of warning."
         },
         {
           "id": "winter_16_wrap",
           "text": "Stop just long enough to wrap your hands better.",
-          "effects": { "energy": -5, "supplies": -1 },
+          "effects": {
+            "energy": -5,
+            "supplies": -1
+          },
           "outcome": "It's a small fix, but it buys you the rest of the day without the cold winning outright."
         }
       ]
     },
     {
-      "id": 17,
+      "id": "winter_17",
       "season": "winter",
+      "role": "middle",
       "scene": {
         "description": "A near-empty supply depot buried in drifted snow, shelves mostly bare.",
         "weather": "snow",
@@ -594,28 +1007,40 @@
         {
           "id": "winter_17_ration",
           "text": "Ration carefully and move on without stopping.",
-          "effects": { "energy": -8, "supplies": -3 },
+          "effects": {
+            "energy": -8,
+            "supplies": -3
+          },
           "outcome": "You make it stretch further than seems fair. It won't last forever, but it lasts today."
         },
         {
           "id": "winter_17_beg",
           "text": "Ask the depot keeper for whatever charity allows.",
-          "effects": { "supplies": 5, "energy": -2 },
+          "effects": {
+            "supplies": 5,
+            "energy": -2
+          },
           "outcome": "He gives you less than you hoped and more than he can afford, and neither of you mentions it again."
         },
         {
           "id": "winter_17_rest",
           "text": "Rest here a full day before continuing.",
           "rest": true,
-          "effects": { "energy": 12, "supplies": -5 },
-          "cures": ["exhausted"],
+          "effects": {
+            "energy": 12,
+            "supplies": -5
+          },
+          "cures": [
+            "exhausted"
+          ],
           "outcome": "It costs you supplies you can't really spare, but you leave standing straighter than you arrived."
         }
       ]
     },
     {
-      "id": 18,
+      "id": "winter_18",
       "season": "winter",
+      "role": "middle",
       "scene": {
         "description": "A quiet frozen lake, the ice thick enough to walk, footprints of someone else already crossing it.",
         "weather": "snow",
@@ -633,7 +1058,9 @@
         {
           "id": "winter_18_invite",
           "text": "Offer to travel the last stretch together.",
-          "effects": { "supplies": -3 },
+          "effects": {
+            "supplies": -3
+          },
           "companion": {
             "id": "wren",
             "name": "Wren",
@@ -644,21 +1071,109 @@
         {
           "id": "winter_18_help_mend",
           "text": "Help her mend the pack before moving on.",
-          "effects": { "energy": -4, "supplies": -2 },
+          "effects": {
+            "energy": -4,
+            "supplies": -2
+          },
           "memory": "A stranger's torn pack, and the cold, careful work of fixing it together.",
           "outcome": "Between the two of you it doesn't take long. She thanks you plainly and turns back to her own road."
         },
         {
           "id": "winter_18_cross",
           "text": "Cross the ice and leave her to her mending.",
-          "effects": { "energy": -6 },
+          "effects": {
+            "energy": -6
+          },
           "outcome": "The ice holds, same as it held for her. By the far shore, she's already out of sight behind you."
         }
       ]
     },
     {
-      "id": 19,
+      "id": "winter_cairn",
       "season": "winter",
+      "role": "middle",
+      "scene": {
+        "description": "A snow-buried cairn marking a trail the drifts have all but swallowed.",
+        "weather": "snow"
+      },
+      "situation": "A cairn of stones stands half-buried where the trail should be, the only mark left above the drifts. Someone built it to be found — and maybe to be dug out.",
+      "choices": [
+        {
+          "id": "winter_cairn_dig",
+          "text": "Dig for the cache the cairn might mark.",
+          "effects": {
+            "supplies": 8,
+            "energy": -6
+          },
+          "outcome": "Your hands are raw by the time you find it, but there's a sealed tin of provisions beneath the stones, left by someone who knew others would come this way."
+        },
+        {
+          "id": "winter_cairn_bearing",
+          "text": "Take a bearing off the cairn and press on.",
+          "effects": {
+            "energy": -6
+          },
+          "outcome": "You line the cairn up against the ridge and trust it, and the trail resurfaces from the snow right about where it promised to."
+        },
+        {
+          "id": "winter_cairn_rest",
+          "text": "Rest in the cairn's lee, out of the wind, before going on.",
+          "rest": true,
+          "effects": {
+            "energy": 8,
+            "supplies": -2
+          },
+          "outcome": "The stones cut the worst of the wind. You sit against them longer than is wise, watching your own tracks fill slowly back in."
+        }
+      ]
+    },
+    {
+      "id": "winter_wolf_tracks",
+      "season": "winter",
+      "role": "middle",
+      "scene": {
+        "description": "Fresh tracks crossing the snowbound trail, the light already failing.",
+        "weather": "snow"
+      },
+      "situation": "Tracks cross the trail ahead — wolf, and not long ago, the snow still crisp at their edges. The light is already going, and the choice of where to spend the night just got harder.",
+      "choices": [
+        {
+          "id": "winter_wolf_tracks_fire",
+          "text": "Build the fire up early and keep watch through the dark.",
+          "effects": {
+            "energy": 4,
+            "supplies": -3
+          },
+          "outcome": "Nothing comes out of the dark but the cold, and by morning the tracks are just tracks. You lose sleep and gain the day."
+        },
+        {
+          "id": "winter_wolf_tracks_press",
+          "text": "Press on quickly while there's still light to see by.",
+          "effects": {
+            "energy": -10
+          },
+          "affliction_chance": {
+            "frostbitten": 0.1
+          },
+          "unavailable_if": "exhausted",
+          "unavailable_reason": "you don't have the pace left to outrun anything tonight",
+          "outcome": "You put distance between yourself and the tracks before full dark, but the cold you walk into charges its own price for the haste."
+        },
+        {
+          "id": "winter_wolf_tracks_high",
+          "text": "Climb to higher, open ground for the night.",
+          "effects": {
+            "energy": -6,
+            "supplies": -1
+          },
+          "outcome": "Nothing can approach the open rise without you seeing it first. You spend a wary, wind-scoured night and come down stiff but unharmed."
+        }
+      ]
+    },
+    {
+      "id": "winter_19",
+      "season": "winter",
+      "role": "closer",
       "scene": {
         "description": "The road's end, a quiet white field opening where the path simply stops.",
         "weather": "snow"
@@ -669,20 +1184,27 @@
           "id": "winter_19_rest_first",
           "text": "Sit down at the road's end before going any further.",
           "rest": true,
-          "effects": { "energy": 8, "supplies": -2 },
+          "effects": {
+            "energy": 8,
+            "supplies": -2
+          },
           "outcome": "You let yourself stop, properly, for what feels like the first time since spring. The snow keeps falling regardless."
         },
         {
           "id": "winter_19_last_look",
           "text": "Turn and look back the way you came.",
-          "effects": { "energy": -2 },
+          "effects": {
+            "energy": -2
+          },
           "memory": "The whole road, spring to winter, seen once more before it's only ever behind you.",
           "outcome": "From here you can't see the beginning anymore. You're not sure you need to."
         },
         {
           "id": "winter_19_walk_on",
           "text": "Keep walking into the snow, past where the road gave out.",
-          "effects": { "energy": -6 },
+          "effects": {
+            "energy": -6
+          },
           "outcome": "There's nothing marking an end here, so you simply stop walking when it feels like enough. It does, eventually."
         }
       ]

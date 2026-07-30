@@ -87,6 +87,10 @@ the resulting set).
 `season` is derived from `stage_index // 5` rather than stored redundantly, so there's no
 way for season and stage index to drift out of sync. Season boundaries land at stage indices
 5, 10, and 15 (i.e. stages 6, 11, 16 in 1-based terms), matching the four 5-stage seasons.
+`stage_index` counts position within the per-journey `plan` (see Data Format → randomized
+journeys), not into the authored pool — but since every journey still has exactly five stages
+per season in order, this arithmetic derivation stays correct regardless of which middles were
+picked.
 
 Failure is detected automatically inside `apply_energy_delta` / `apply_supplies_delta`
 whenever a resource clamps to 0 — there's no separate "check failure" step the caller has to
@@ -465,6 +469,13 @@ the rendering layer just to save or load a look. Saves live in `saves/` at the r
 which `.gitignore` excludes entirely — a player's progress is local runtime data, not
 version-controlled content, the same reasoning `.venv/` already gets.
 
+The saved state now includes the journey's `plan` (its ordered list of selected stage ids).
+That's essential once journeys are randomized: without persisting the exact selection, resuming
+would re-roll a different sequence of stages and the story would change under the player
+mid-journey. `_state_from_dict` reads it with a default of `[]` so a save written before the
+`plan` field existed still loads; `Game._continue_game` fills an in-progress plan-less save with
+`stages.canonical_journey(...)` so resolving `plan[stage_index]` can't crash on old data.
+
 **Atomic writes.** `save_game` writes to a `.json.tmp` file and `os.replace`s it into place
 rather than writing the target file directly. This matters specifically because of *when*
 saves happen: `Game._autosave` fires synchronously right after every single choice resolves,
@@ -498,33 +509,51 @@ came from stays in the menu's list as something still revisitable, not overwritt
 
 ## Data Format
 
-Stages live in `content/stages.json` as a single `{"stages": [...]}` array, one entry per
-stage index (0-based, contiguous, no gaps — enforced by `stages._validate_stage_sequence`).
-Each stage declares its `season`, a `scene` dict (`description` + `weather`, used later by
-the renderer to pick a palette/particle effect), a `situation` string, and 2–3 `choices`.
-`scene` may also declare an optional `character` block (see NPC portraits above) describing
-an NPC the situation text mentions, with an optional `prop`; most stages omit it entirely.
+Stages live in `content/stages.json` as a single `{"stages": [...]}` array. Each stage has a
+stable string `id` (e.g. `"spring_stream"`... in practice `"spring_2"`, `"winter_cairn"`), a
+`season`, a structural `role` (`opener` / `middle` / `closer`), a `scene` dict (`description` +
+`weather`, plus optional `character` and `landmark`), a `situation` string, and 2–3 `choices`.
+The array is the full authored *pool*, not one playthrough — it holds more middles per season
+than any single journey uses.
 
 A choice's `effects` dict may only use the keys in `stages.VALID_EFFECT_KEYS` (`energy`,
 `supplies`); `affliction_chance`, `cures`, and `unavailable_if` may only reference ids in
 `stages.VALID_AFFLICTIONS`. `stages.load_stages()` validates all of this at load time and
-raises `ContentError` with a specific message rather than letting bad content fail silently
-or crash deep in game logic. This is deliberately stricter than "just parse the JSON" —
-content is written by hand and the validation step catches typos in effect/affliction names
-before they'd otherwise surface as a silent no-op during play.
+raises `ContentError` with a specific message rather than letting bad content fail silently.
+It also validates the *pool shape*: ids are unique, and every season has exactly one opener,
+exactly one closer, and at least `MIDDLE_SLOTS_PER_SEASON` middles — the pieces `build_journey`
+needs to lay down a coherent season.
 
-`season` is declared per-stage in the JSON *and* cross-checked against the value computed
-from the stage index (`stages.stage_season`) — this catches a copy-paste error where a
-stage is filed under the wrong season heading.
+**Randomized journeys (`stages.build_journey`).** Rather than always running the stages in file
+order, each new journey is a fresh selection: for every season in the fixed `SEASONS` order
+(spring → winter), `build_journey` lays down that season's single opener, then a random
+`rng.sample` of `MIDDLE_SLOTS_PER_SEASON` of its middle stages (shuffled into the slots between),
+then its single closer. So the *arc* is always coherent — the season order never changes, and
+each season still opens and closes on its fixed narrative beats — while *which* middle
+encounters appear, and in what order, differ from one playthrough to the next. The opener/closer
+anchoring is what keeps the story sensible: season-boundary transitions (the summer ridge "before
+the descent", the autumn "last bare trees before the climb", winter's "road's end") are always
+the closers, so they always land where they should.
 
-All 20 stages (5 per season) are now written. Four companions are recruitable across the
-journey — Mira (stage 1), Sable (stage 4), Talia (stage 6), Emet (stage 11), Wren (stage
-18) — five opportunities for four slots, so a player who wants a full company has to pass
-on one. Frostbitten risk is confined to the winter stages (15-19) and content validation
-enforces that at load time; Ill risk appears both as a direct per-choice consequence (e.g.
-a risky shortcut) and as a per-stage roll (`afflictions.roll_ill`, called from
-`stages.apply_choice` immediately after `advance_stage()`, so it fires "at the start of"
-the newly-arrived stage as the design calls for).
+Because each season contributes exactly `STAGES_PER_SEASON` selected stages (1 opener +
+`MIDDLE_SLOTS_PER_SEASON` middles + 1 closer), a journey plan is always the same length with
+season boundaries on the same grid — so `state.season` (derived arithmetically as
+`stage_index // STAGES_PER_SEASON`), `TOTAL_STAGES`, and the save-summary season label all keep
+working unchanged. The one structural change: `stage_index` now indexes into the per-journey
+plan (`GameState.plan`, a list of stage ids), not into the fixed pool. `Game._start_new_game`
+rolls the plan and stores it on the state; `_sync_stage` resolves the current stage via
+`self._stages_by_id[self.state.plan[self.state.stage_index]]`. The plan is persisted with the
+save (see below) so a resumed journey replays the exact same selected stages rather than
+re-rolling a different story under the player. `stages.canonical_journey` is a deterministic
+plan used only to migrate a pre-randomization save that predates the `plan` field.
+
+Companions are recruitable from stages that declare a `character` block (Mira, Sable, Talia,
+Emet, Wren — five opportunities for four slots). Since those are middle stages, which companions
+a given journey even offers now varies with the random selection — another axis of replay
+variety. Frostbitten risk is confined to winter stages and content validation enforces that at
+load time; Ill risk appears both as a direct per-choice consequence and as a per-stage roll
+(`afflictions.roll_ill`, called from `stages.apply_choice` right after `advance_stage()`, so it
+fires "at the start of" the newly-arrived stage).
 
 ## Testing
 

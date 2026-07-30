@@ -10,7 +10,16 @@ from fernweh import save, scenes, ui
 from fernweh.afflictions import hardship_level
 from fernweh.ending import generate_ending
 from fernweh.particles import ParticleSystem, particle_kind_for_weather
-from fernweh.stages import Choice, SceneCharacter, apply_choice, choice_is_available, load_stages
+from fernweh.stages import (
+    Choice,
+    SceneCharacter,
+    apply_choice,
+    build_journey,
+    canonical_journey,
+    choice_is_available,
+    load_stages,
+    stages_by_id,
+)
 from fernweh.state import MAX_COMPANIONS, GameState
 from fernweh.tween import Passage, Tween, ease_in_out_quad, ease_out_quad
 
@@ -73,7 +82,11 @@ class Game:
         self.font = pygame.font.Font(None, 28)
         self.hint_font = pygame.font.Font(None, 20)
         self.rng = random.Random()
+        # The full authored pool, plus an id index so a journey plan's stage
+        # ids can be resolved back to Stage objects. A single journey runs only
+        # a selected, reshuffled subset of this pool (see build_journey).
         self.stages = load_stages()
+        self._stages_by_id = stages_by_id(self.stages)
         # A placeholder journey exists from the very first frame (so the menu
         # has a season/scene to render behind it), but it isn't "the" game
         # until `_start_new_game`/`_continue_game` replaces it — no autosave
@@ -248,7 +261,12 @@ class Game:
         """Begin a fresh journey under a brand-new save id."""
         self.save_id = save.new_save_id()
         self._save_created_at = save.now_iso()
-        self.state = GameState()
+        # Roll this journey's own sequence of stages up front — a random pick of
+        # each season's middles between its fixed opener and closer — so every
+        # new journey plays a different selection of questions while still
+        # walking spring -> winter. The plan lives on the state so it's saved
+        # and a resumed journey replays the same stages.
+        self.state = GameState(plan=build_journey(self.stages, self.rng))
         self.traveler_appearance = scenes.random_person_appearance(self.rng)
         self._companion_appearances = {}
         self._stage_character = None
@@ -264,6 +282,12 @@ class Game:
         self.save_id = save_id
         self._save_created_at = loaded.created_at
         self.state = loaded.state
+        # A save written before journeys were randomized has no stored plan; if
+        # it's still in progress, give it a deterministic canonical plan so
+        # resolving `plan[stage_index]` doesn't crash. Finished journeys don't
+        # need one (the ending screen reads no stage).
+        if not self.state.plan and not self.state.ended:
+            self.state.plan = canonical_journey(self.stages)
         self.traveler_appearance = scenes.person_appearance_from_dict(loaded.traveler_appearance)
         self._companion_appearances = {
             companion_id: scenes.person_appearance_from_dict(data)
@@ -352,7 +376,7 @@ class Game:
             )
         self._synced_stage_index = self.state.stage_index
 
-        stage = self.stages[self.state.stage_index]
+        stage = self._stages_by_id[self.state.plan[self.state.stage_index]]
         kind_name = particle_kind_for_weather(stage.scene["weather"])
         self.particle_system = (
             ParticleSystem(kind_name, *WINDOW_SIZE, rng=self.rng) if kind_name else None
