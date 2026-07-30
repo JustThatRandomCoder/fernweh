@@ -486,6 +486,91 @@
       ]
     },
     {
+      "id": "summer_thunderhead",
+      "season": "summer",
+      "role": "middle",
+      "scene": {
+        "description": "A wide plain under stacking thunderheads, the light gone bruised and heavy.",
+        "weather": "heatwave"
+      },
+      "situation": "Thunderheads pile up along the horizon and the air goes still and heavy. The storm might break over you or slide past to the east — there's no telling yet.",
+      "choices": [
+        {
+          "id": "summer_thunderhead_cover",
+          "text": "Push hard to reach the treeline before it breaks.",
+          "effects": {
+            "energy": -10
+          },
+          "outcome": "You make the trees as the first fat drops hit, and stand under them breathing hard while the plain behind you turns to grey rain."
+        },
+        {
+          "id": "summer_thunderhead_wait",
+          "text": "Wait it out under a rocky outcrop.",
+          "effects": {
+            "energy": 6,
+            "supplies": -2
+          },
+          "cures": [
+            "exhausted"
+          ],
+          "outcome": "The storm rolls through in a spectacular half-hour and leaves the air washed clean. You set off again into a cooler, kinder afternoon."
+        },
+        {
+          "id": "summer_thunderhead_risk",
+          "text": "Chance the open road and keep moving.",
+          "effects": {
+            "energy": -6
+          },
+          "affliction_chance": {
+            "ill": 0.1
+          },
+          "outcome": "The storm clips you with its edge — enough rain to soak you through, enough wind to make you regret not stopping."
+        }
+      ]
+    },
+    {
+      "id": "summer_reapers",
+      "season": "summer",
+      "role": "middle",
+      "scene": {
+        "description": "A gold field at the roadside, a line of reapers working slow in the heat.",
+        "weather": "clear"
+      },
+      "situation": "A line of reapers works a field of gold at the road's edge, scythes keeping a slow shared time. One of them straightens, catches your eye, and waves you over toward the shade where their meal is laid out.",
+      "choices": [
+        {
+          "id": "summer_reapers_meal",
+          "text": "Join them for the midday meal.",
+          "effects": {
+            "energy": 12,
+            "supplies": -3
+          },
+          "cures": [
+            "ill"
+          ],
+          "outcome": "They feed you like one of their own and ask for nothing but the news of the road. You leave heavier and steadier than you came."
+        },
+        {
+          "id": "summer_reapers_work",
+          "text": "Lend an hour to the harvest in exchange for provisions.",
+          "effects": {
+            "energy": -6,
+            "supplies": 6
+          },
+          "outcome": "An hour with a borrowed scythe leaves your back complaining, but they send you off with a full sack and no argument."
+        },
+        {
+          "id": "summer_reapers_pass",
+          "text": "Raise a hand in thanks and keep walking.",
+          "effects": {
+            "energy": -3
+          },
+          "memory": "The sound of a dozen scythes keeping time in the heat of a field you never crossed.",
+          "outcome": "You wave the offer off and walk on, the rhythm of the scythes following you down the road for a while."
+        }
+      ]
+    },
+    {
       "id": "summer_9",
       "season": "summer",
       "role": "closer",
