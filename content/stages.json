@@ -789,6 +789,87 @@
       ]
     },
     {
+      "id": "autumn_cideryard",
+      "season": "autumn",
+      "role": "middle",
+      "scene": {
+        "description": "An abandoned cider press in a yard of windfall apples going soft in the grass.",
+        "weather": "overcast"
+      },
+      "situation": "A cider press stands abandoned in a yard, and windfall apples lie thick in the wet grass, half of them already going soft. Whoever worked this place is long gone, and the wasps have it now.",
+      "choices": [
+        {
+          "id": "autumn_cideryard_gather",
+          "text": "Gather the sound apples still worth keeping.",
+          "effects": {
+            "supplies": 6,
+            "energy": -2
+          },
+          "outcome": "You fill a pocket with the firm ones and leave the rest to the wasps and the coming frost. It's honest enough."
+        },
+        {
+          "id": "autumn_cideryard_press",
+          "text": "Work the press for a little cider to carry.",
+          "effects": {
+            "supplies": 4,
+            "energy": -5
+          },
+          "outcome": "The press groans back to life under your weight, and you carry off a flask of something cloudy and sweet that won't last the week."
+        },
+        {
+          "id": "autumn_cideryard_keepsake",
+          "text": "Take one perfect apple and leave the yard to the wasps.",
+          "effects": {
+            "energy": -3
+          },
+          "memory": "A single unblemished apple carried a whole day before you finally ate it.",
+          "outcome": "You pick the one flawless apple in the whole soft, humming yard, and carry it a long way before it's gone."
+        }
+      ]
+    },
+    {
+      "id": "autumn_standing_stones",
+      "season": "autumn",
+      "role": "middle",
+      "scene": {
+        "description": "A ring of leaning standing stones on the ridge, older than any road.",
+        "weather": "cold_wind"
+      },
+      "situation": "A ring of standing stones leans on the high ground, greyed and lichened and older than any road that ever passed them. The wind moves through the ring with a sound almost like a voice.",
+      "choices": [
+        {
+          "id": "autumn_standing_stones_rest",
+          "text": "Rest in the lee of the stones, out of the wind.",
+          "rest": true,
+          "effects": {
+            "energy": 10,
+            "supplies": -1
+          },
+          "cures": [
+            "exhausted"
+          ],
+          "outcome": "The stones break the wind better than any wall, and you sit among them a while, oddly unwilling to hurry on."
+        },
+        {
+          "id": "autumn_standing_stones_walk",
+          "text": "Walk the ring once, the way the old stories say.",
+          "effects": {
+            "energy": -2
+          },
+          "memory": "A ring of grey stones on a cold ridge, and the wind's voice caught inside it.",
+          "outcome": "You don't believe in it, quite, but you walk the ring anyway, and something about the day feels marked afterward."
+        },
+        {
+          "id": "autumn_standing_stones_skirt",
+          "text": "Skirt around the ring and keep your pace.",
+          "effects": {
+            "energy": -4
+          },
+          "outcome": "You give the stones a wide berth for no reason you could name, and the wind's voice fades behind you as the road drops away."
+        }
+      ]
+    },
+    {
       "id": "autumn_14",
       "season": "autumn",
       "role": "closer",
