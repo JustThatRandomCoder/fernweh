@@ -32,6 +32,28 @@ VALID_SKIN_TONES = frozenset({"light", "tan", "deep", "dark"})
 VALID_HAIR_COLORS = frozenset({"black", "auburn", "sandy", "grey"})
 VALID_TUNIC_COLORS = frozenset({"red", "blue", "green", "gold", "purple"})
 VALID_PROPS = frozenset({"well"})
+# A scene's optional landmark: a concrete feature the situation text names (a
+# bridge to cross, a stream, a lone tree, a building) that the rendering layer
+# draws into the landscape so the picture matches the words. Kept as a fixed
+# vocabulary validated here, the same "shared name, duplicated by convention"
+# relationship the character vocabularies above have with `scenes.py` — which
+# maps each of these keys to an actual draw routine in `LANDMARK_DRAWERS`.
+# Absent on stages whose scenery the generic season landscape already conveys.
+VALID_LANDMARKS = frozenset(
+    {
+        "stream",
+        "bridge",
+        "lone_tree",
+        "market",
+        "dry_riverbed",
+        "orchard",
+        "cabin",
+        "stone_house",
+        "shelter",
+        "depot",
+        "frozen_lake",
+    }
+)
 
 DEFAULT_CONTENT_PATH = Path(__file__).resolve().parent.parent.parent / "content" / "stages.json"
 
@@ -54,6 +76,13 @@ class Choice:
     companion: dict[str, str] | None
     unavailable_if: str | None
     unavailable_reason: str | None
+    # When true, choosing this option is the player deciding to sit and rest
+    # (on a bench, a bank, in the shade) before moving on — so the travel
+    # sequence that follows shows the party seated on a bench rather than
+    # walking the path. Pure content flag; the rendering layer reads it to
+    # pick which passage animation to play. Defaults to False for the vast
+    # majority of choices, which are ordinary "keep walking" decisions.
+    rest: bool
 
 
 @dataclass(frozen=True)
@@ -82,6 +111,10 @@ class Stage:
     situation: str
     choices: tuple[Choice, ...]
     character: SceneCharacter | None
+    # The concrete landscape feature this stage's scene names (a bridge, a
+    # stream, a building), drawn by the rendering layer on top of the generic
+    # season landscape. None on the many stages that need no specific landmark.
+    landmark: str | None
 
 
 def load_stages(path: Path | None = None) -> list[Stage]:
@@ -175,7 +208,17 @@ def _parse_stage(raw: dict[str, Any]) -> Stage:
         situation=raw["situation"],
         choices=choices,
         character=_parse_character(raw["scene"].get("character"), raw.get("id")),
+        landmark=_parse_landmark(raw["scene"].get("landmark"), raw.get("id")),
     )
+
+
+def _parse_landmark(landmark: str | None, stage_id: Any) -> str | None:
+    """Validate a scene's optional landmark name against the known vocabulary."""
+    if landmark is None:
+        return None
+    if landmark not in VALID_LANDMARKS:
+        raise ContentError(f"stage {stage_id} references unknown landmark '{landmark}'")
+    return landmark
 
 
 def _parse_character(raw: dict[str, Any] | None, stage_id: Any) -> SceneCharacter | None:
@@ -244,6 +287,9 @@ def _parse_choice(raw: dict[str, Any], season: str) -> Choice:
         companion=raw.get("companion"),
         unavailable_if=unavailable_if,
         unavailable_reason=raw.get("unavailable_reason"),
+        # Optional in content; only the rest/sit choices set it, everything
+        # else defaults to a normal walking passage.
+        rest=bool(raw.get("rest", False)),
     )
 
 

@@ -211,7 +211,11 @@ def desaturate_palette(palette: Palette, amount: float) -> Palette:
 
 
 def draw_scene(
-    surface: pygame.Surface, season: str, desaturation: float = 0.0, elapsed: float = 0.0
+    surface: pygame.Surface,
+    season: str,
+    desaturation: float = 0.0,
+    elapsed: float = 0.0,
+    landmark: str | None = None,
 ) -> None:
     """Draw a full seasonal scene: sky, sun/moon, drifting clouds, hills, ground, and trees.
 
@@ -219,6 +223,9 @@ def draw_scene(
     level without any per-affliction special-casing. `elapsed` (seconds since
     the game started) drives the only continuous motion in the background
     itself — cloud drift — independent of the particle system's weather.
+    `landmark`, when given, is one concrete feature the current stage names
+    (a bridge, a stream, a building) drawn on top of the generic landscape so
+    the picture matches the words — see `draw_landmark`.
     """
     palette = desaturate_palette(palette_for_season(season), desaturation)
     width, height = surface.get_size()
@@ -268,6 +275,12 @@ def draw_scene(
     # so trunks planted near its edges still occlude it the way real
     # roadside trees would.
     _draw_path(surface, palette, width, sky_height, ground_height)
+
+    # A stage-specific landmark (bridge, stream, building) sits on the ground
+    # above the path but below the foreground trees, so trees nearest the
+    # viewer still overlap it the way they overlap everything else.
+    if landmark is not None:
+        draw_landmark(surface, palette, landmark, width, height, ground_height, elapsed)
 
     # Trees stand on top of everything else in the scene — the nearest layer,
     # rooted in the ground band.
@@ -507,6 +520,129 @@ def draw_traveler(
     _pixel_rect(surface, appearance.hair, x - 2 * unit, head_bottom - head_h, 4 * unit, unit * 1.4)
     _pixel_rect(surface, appearance.hair, x - 2.2 * unit, head_bottom - head_h, unit * 0.6, head_h)
     _pixel_rect(surface, appearance.hair, x + 1.6 * unit, head_bottom - head_h, unit * 0.6, head_h)
+
+
+def draw_landmark(
+    surface: pygame.Surface,
+    palette: Palette,
+    landmark: str,
+    width: int,
+    height: int,
+    ground_height: float,
+    elapsed: float,
+) -> None:
+    """Draw one named landmark into the scene, dispatching on the landmark name.
+
+    A registry (`_LANDMARK_DRAWERS`) maps each name from `stages.VALID_LANDMARKS`
+    to a small draw routine, so adding a landmark is adding one function and one
+    registry entry — `draw_scene` and the game loop never change. An unknown
+    name (one validated in content but not yet given a drawer) is silently
+    skipped rather than crashing the render.
+    """
+    drawer = _LANDMARK_DRAWERS.get(landmark)
+    if drawer is not None:
+        drawer(surface, palette, width, height, ground_height, elapsed)
+
+
+def draw_bench(
+    surface: pygame.Surface,
+    palette: Palette,
+    center_x: float,
+    seat_y: float,
+    seat_width: float,
+) -> None:
+    """Draw a simple wooden bench: a seat plank, a backrest, and two pairs of legs.
+
+    Drawn during a rest passage (see `game.py`) as the thing the traveler and
+    their companions sit on. `seat_y` is the top surface of the seat plank —
+    the same y a seated figure's hips rest on, so `draw_person_seated` and this
+    function stay in lock-step about where "the seat" is. Colors are derived
+    from the season palette's ground tone (a woody brown already present in
+    every season) rather than a new hard-coded color, so the bench sits
+    naturally inside whatever season's scene is on screen.
+    """
+    # A warm wood tone: the ground darkened toward brown, with a lighter top
+    # face so the plank reads as catching the light from above.
+    wood = _darken(palette.ground, 0.45)
+    wood_top = _lighten(wood, 0.18)
+    plank_h = max(6.0, seat_width * 0.06)
+    left = center_x - seat_width / 2
+    # Back legs first (further from the viewer), then the seat, then the front
+    # legs and backrest on top — so nearer parts correctly occlude farther ones.
+    leg_w = max(4.0, seat_width * 0.04)
+    leg_h = plank_h * 3.2
+    for leg_x in (left + leg_w, center_x + seat_width / 2 - 2 * leg_w):
+        _pixel_rect(surface, _darken(wood, 0.2), leg_x, seat_y, leg_w, leg_h)
+    # The seat plank itself, with a lighter top edge for a hint of depth.
+    _pixel_rect(surface, wood, left, seat_y, seat_width, plank_h)
+    _pixel_rect(surface, wood_top, left, seat_y, seat_width, plank_h * 0.35)
+    # A low backrest: two uprights and a horizontal rail behind the seat. Kept
+    # short enough (roughly a seated figure's torso height) that the top rail
+    # sits behind the sitters' backs rather than crossing their necks.
+    back_h = plank_h * 1.6
+    back_top = seat_y - back_h
+    for upright_x in (left + leg_w, center_x + seat_width / 2 - 2 * leg_w):
+        _pixel_rect(surface, _darken(wood, 0.1), upright_x, back_top, leg_w, back_h)
+    _pixel_rect(surface, wood, left, back_top, seat_width, plank_h * 0.8)
+
+
+def draw_person_seated(
+    surface: pygame.Surface,
+    palette: Palette,
+    center_x: float,
+    seat_y: float,
+    appearance: PersonAppearance,
+    elapsed: float,
+    idle_phase: float = 0.0,
+) -> None:
+    """Draw one person sitting on a bench, built from the same blocky pixels as `draw_traveler`.
+
+    The pose is a seated front view: hips resting on `seat_y`, torso and head
+    upright above, arms at the sides, and the shins hanging down off the front
+    of the seat to rest feet on the ground below. `idle_phase` offsets a slow
+    breathing bob per person (via `elapsed`) so a row of seated figures doesn't
+    rise and fall in perfect unison — the resting equivalent of the gait offset
+    the walking figures use.
+    """
+    unit = TRAVELER_PIXEL
+    # A gentle, slow breathing rise-and-fall — much smaller and slower than the
+    # walk cycle's bob, because a seated figure is at rest, not in motion.
+    breathe = math.sin(elapsed * 1.6 + idle_phase) * unit * 0.4
+
+    torso_h, head_h = 6 * unit, 4 * unit
+    hip_y = seat_y - breathe
+    shoulder_y = hip_y - torso_h
+    head_bottom = shoulder_y
+
+    # Shins hang straight down from the front edge of the seat to the ground,
+    # feet planted just below — this is the read that says "sitting" rather
+    # than "standing", since the thighs are folded onto the seat and hidden.
+    shin_h = 5 * unit
+    foot_y = seat_y + shin_h
+    _pixel_rect(surface, appearance.trousers, center_x - 2.2 * unit, seat_y, 2 * unit, shin_h)
+    _pixel_rect(surface, appearance.trousers, center_x + 0.2 * unit, seat_y, 2 * unit, shin_h)
+    shoe_color = _darken(appearance.trousers, 0.4)
+    _pixel_rect(surface, shoe_color, center_x - 2.5 * unit, foot_y - unit, 2.6 * unit, unit)
+    _pixel_rect(surface, shoe_color, center_x - 0.1 * unit, foot_y - unit, 2.6 * unit, unit)
+
+    # Torso, then arms resting close at the sides (no swing — hands in the lap),
+    # then the head and hair, mirroring the standing figure's stacking order.
+    _pixel_rect(surface, appearance.tunic, center_x - 2.5 * unit, shoulder_y, 5 * unit, torso_h)
+    _pixel_rect(surface, appearance.skin, center_x - 3 * unit, shoulder_y, unit, 4.5 * unit)
+    _pixel_rect(surface, appearance.skin, center_x + 2 * unit, shoulder_y, unit, 4.5 * unit)
+
+    _pixel_rect(
+        surface, appearance.skin, center_x - 2 * unit, head_bottom - head_h, 4 * unit, head_h
+    )
+    _pixel_rect(
+        surface, appearance.hair, center_x - 2 * unit, head_bottom - head_h, 4 * unit, unit * 1.4
+    )
+    _pixel_rect(
+        surface, appearance.hair, center_x - 2.2 * unit, head_bottom - head_h, unit * 0.6, head_h
+    )
+    _pixel_rect(
+        surface, appearance.hair, center_x + 1.6 * unit, head_bottom - head_h, unit * 0.6, head_h
+    )
 
 
 POSE_HEAD_LEAN: dict[str, float] = {
@@ -863,6 +999,623 @@ def _draw_bare_branches(
             top[1] - math.cos(angle_offset) * branch_length,
         )
         pygame.draw.line(surface, color, top, end, max(1, round(2 * scale)))
+
+
+def _draw_bridge(
+    surface: pygame.Surface,
+    palette: Palette,
+    width: int,
+    height: int,
+    ground_height: float,
+    elapsed: float,
+) -> None:
+    """Draw an old wooden footbridge over a gorge, spanning the scene at path level.
+
+    The deck sags slightly in the middle (an old rope-and-plank bridge, not a
+    rigid span) and groans with a small, slow vertical sway keyed off `elapsed`
+    — the "groans under its own weight" the situation names. A darker gorge
+    shadow drops away beneath the deck to read as the chasm being crossed.
+    """
+    sky_height = height - ground_height
+    x1 = width * 0.2
+    x2 = width * 0.8
+    span = x2 - x1
+    # The deck sits low in the ground band, at roughly the traveler's path
+    # level, so a figure crossing during a passage reads as being on it.
+    base_y = sky_height + ground_height * 0.6
+    sway = math.sin(elapsed * 1.4) * 2.0
+    sag = ground_height * 0.07
+
+    def deck_y(x: float) -> float:
+        # A parabola that is 0 at both ends and 1 at the center makes the deck
+        # dip in the middle; the groan sway is scaled by the same curve so the
+        # bridge flexes most where it is least supported.
+        t = (x - x1) / span
+        dip = 4 * t * (1 - t)
+        return base_y + sag * dip + sway * dip
+
+    samples = [(x1 + span * i / 24, deck_y(x1 + span * i / 24)) for i in range(25)]
+
+    # 1. The gorge: a dark chasm dropping from just under the deck to the
+    # bottom of the scene, so the bridge reads as spanning a real gap.
+    gorge_color = _darken(palette.ground, 0.62)
+    gorge = [*samples, (x2, height), (x1, height)]
+    pygame.draw.polygon(surface, gorge_color, gorge)
+
+    wood = _darken(palette.ground, 0.5)
+    plank = _lighten(wood, 0.28)  # silvered, weathered planks catching the light
+    rope = _darken(wood, 0.25)
+
+    # 2. Two suspension ropes sweeping from post to post, one at deck level and
+    # one raised as a handrail, both following the same sagging curve.
+    handrail = [(x, y - ground_height * 0.16) for x, y in samples]
+    pygame.draw.lines(surface, rope, False, handrail, max(2, round(width * 0.004)))
+    pygame.draw.lines(surface, rope, False, samples, max(2, round(width * 0.004)))
+
+    # 3. The deck planks: short vertical boards laid across the span, a couple
+    # tilted to read as "loose in places". Vertical posts every few planks tie
+    # the handrail down to the deck.
+    plank_w = span / 24
+    for i, (x, y) in enumerate(samples):
+        tilt = 2 if i % 5 == 2 else 0  # an occasional plank sitting proud
+        _pixel_rect(surface, plank, x - plank_w / 2, y - 3 - tilt, plank_w * 0.9, 6)
+        if i % 4 == 0:
+            post_top = y - ground_height * 0.16
+            _pixel_rect(surface, wood, x - 1, post_top, max(2, round(width * 0.004)), y - post_top)
+
+
+def _draw_stream(
+    surface: pygame.Surface,
+    palette: Palette,
+    width: int,
+    height: int,
+    ground_height: float,
+    elapsed: float,
+) -> None:
+    """Draw a shallow stream crossing the path, with shimmering water and pale stones.
+
+    A cool water ribbon follows the same path curve the traveler walks, so the
+    crossing sits exactly where the road does. Slow, drifting highlight lines
+    give the surface a live shimmer; a few pale stones near the middle are the
+    "something pale catches the light among the stones" the situation names.
+    """
+    sky_height = height - ground_height
+    # A cool water tone: the season's sky pulled toward a muted blue, so it
+    # still reads as this season's light on the water rather than a fixed blue.
+    water = _lerp_color(palette.sky_bottom, (96, 130, 158), 0.55)
+    half = ground_height * 0.1
+    steps = 40
+
+    def center_y(i: int) -> float:
+        return sky_height + ground_height * path_y_ratio(i / steps)
+
+    # The water body: a wide ribbon centered on the path curve.
+    top_edge = [(width * i / steps, center_y(i) - half) for i in range(steps + 1)]
+    bottom_edge = [(width * i / steps, center_y(i) + half) for i in range(steps + 1)]
+    pygame.draw.polygon(surface, water, [*top_edge, *reversed(bottom_edge)])
+
+    # Shimmer: a few pale highlight lines drifting slowly sideways, each at its
+    # own depth within the band, so the surface never looks like flat paint.
+    shimmer = _lighten(water, 0.4)
+    for lane, speed, phase in ((-0.4, 9.0, 0.0), (0.1, 6.0, 2.0), (0.45, 11.0, 4.0)):
+        pts = []
+        for i in range(steps + 1):
+            x = width * i / steps
+            wobble = math.sin(elapsed * 1.5 + phase + i * 0.4) * half * 0.18
+            pts.append((x, center_y(i) + lane * half + wobble))
+        # The drift is a slow horizontal scroll of where the line brightens,
+        # done by only stroking a moving window of the points.
+        offset = int((elapsed * speed) % (steps + 1))
+        window = pts[offset:] + pts[:offset]
+        pygame.draw.aalines(surface, shimmer, False, window[: steps // 2])
+
+    # A cluster of pale, smooth stones near the middle of the crossing.
+    stone = _lighten(palette.ground, 0.5)
+    for sx, sy in ((0.44, 0.1), (0.52, -0.2), (0.57, 0.25), (0.49, 0.4)):
+        cx = width * sx
+        cy = sky_height + ground_height * path_y_ratio(sx) + sy * half
+        pygame.draw.ellipse(surface, stone, pygame.Rect(cx - 6, cy - 3, 12, 6))
+
+
+def _draw_lone_tree(
+    surface: pygame.Surface,
+    palette: Palette,
+    width: int,
+    height: int,
+    ground_height: float,
+    elapsed: float,
+) -> None:
+    """Draw a single broad tree casting the only shade on a sunbaked plain.
+
+    Bigger than the tree-line trees and set out on its own, with a soft pool of
+    shade beneath it — the "lone tree offering the only shade for miles" the
+    scene describes. The canopy sways slowly so it doesn't read as frozen in
+    the heat-shimmering air.
+    """
+    sky_height = height - ground_height
+    # Set off to one side of center so it stays visible beside the choice UI,
+    # and rooted where the path runs at that x so it stands on the ground.
+    x_ratio = 0.64
+    x = width * x_ratio
+    base_y = sky_height + ground_height * path_y_ratio(x_ratio)
+
+    # A soft shade pool on the ground under the canopy, drawn first so the
+    # trunk and canopy sit on top of it.
+    shade_w, shade_h = int(width * 0.2), int(ground_height * 0.36)
+    shade_surf = pygame.Surface((shade_w, shade_h), pygame.SRCALPHA)
+    pygame.draw.ellipse(shade_surf, (*_darken(palette.ground, 0.35), 90), shade_surf.get_rect())
+    surface.blit(shade_surf, (x - shade_w / 2, base_y - shade_h * 0.4))
+
+    # A tall trunk, thicker than the roadside trees, with a slow top-sway.
+    trunk_color = _darken(palette.ground, 0.42)
+    trunk_h = ground_height * 1.7
+    sway = math.sin(elapsed * 0.5) * 6
+    top = (x + sway, base_y - trunk_h)
+    pygame.draw.line(surface, trunk_color, (x, base_y), top, max(4, round(width * 0.008)))
+
+    # A broad canopy: a large cluster of overlapping circles, summer-green (or
+    # the season foliage), with a darker underside for a hint of volume.
+    foliage = palette.foliage or _darken(palette.ground, 0.2)
+    puffs = (
+        (-1.0, 0.15, 0.62),
+        (-0.35, -0.4, 0.8),
+        (0.4, -0.15, 0.72),
+        (1.0, 0.2, 0.58),
+        (0.0, 0.35, 0.66),
+    )
+    unit = width * 0.055
+    canopy_size = int(unit * 5)
+    canopy = pygame.Surface((canopy_size, canopy_size), pygame.SRCALPHA)
+    center = canopy_size / 2
+    for dx, dy, r in puffs:
+        pygame.draw.circle(
+            canopy, foliage, (round(center + dx * unit), round(center + dy * unit)), round(unit * r)
+        )
+    surface.blit(canopy, (top[0] - center, top[1] - center * 1.2))
+
+
+def _draw_orchard(
+    surface: pygame.Surface,
+    palette: Palette,
+    width: int,
+    height: int,
+    ground_height: float,
+    elapsed: float,
+) -> None:
+    """Draw a row of low fruit trees with heavy fruit, a village hinted behind them.
+
+    Squat, round trees (lower and fuller than the roadside tree line) laid out
+    in a row, each dotted with fruit on its "low branches"; two small house
+    silhouettes sit on the far hill for the "quiet village" beyond. Each tree
+    sways on its own slow phase so the little orchard breathes.
+    """
+    sky_height = height - ground_height
+    foliage = palette.foliage or _darken(palette.ground, 0.2)
+    trunk_color = _darken(palette.ground, 0.42)
+    # Fruit picks up the season's warm accent so it reads as ripe fruit, not
+    # random dots, and stays legible against the green canopy.
+    fruit_color = _lerp_color(palette.accent, (196, 60, 48), 0.5)
+
+    # Two simple house silhouettes on the far hillside — just enough to say
+    # "village" without drawing a whole settlement.
+    house = _darken(palette.ground, 0.3)
+    for hx in (0.34, 0.42):
+        hxp = width * hx
+        hy = sky_height + ground_height * 0.28
+        _pixel_rect(surface, house, hxp, hy, width * 0.03, ground_height * 0.16)
+        pygame.draw.polygon(
+            surface,
+            _darken(house, 0.2),
+            [
+                (hxp - 3, hy),
+                (hxp + width * 0.015, hy - ground_height * 0.1),
+                (hxp + width * 0.03 + 3, hy),
+            ],
+        )
+
+    # The orchard row itself, nearer the viewer and off to the right so it
+    # stays clear of the far houses.
+    for i, x_ratio in enumerate((0.5, 0.62, 0.74, 0.86)):
+        x = width * x_ratio
+        base_y = sky_height + ground_height * path_y_ratio(x_ratio)
+        trunk_h = ground_height * 0.5
+        sway = math.sin(elapsed * 0.6 + i) * 3
+        top = (x + sway, base_y - trunk_h)
+        pygame.draw.line(surface, trunk_color, (x, base_y), top, max(3, round(width * 0.005)))
+        # A low, round canopy.
+        radius = ground_height * 0.32
+        pygame.draw.circle(surface, foliage, (round(top[0]), round(top[1])), round(radius))
+        # Fruit dotted around the lower half of the canopy.
+        for angle in (0.4, 1.2, 2.0, 2.8, 3.6):
+            fx = top[0] + math.cos(angle) * radius * 0.7
+            fy = top[1] + math.sin(angle) * radius * 0.55 + radius * 0.2
+            pygame.draw.circle(
+                surface, fruit_color, (round(fx), round(fy)), max(2, round(radius * 0.12))
+            )
+
+
+def _draw_building(
+    surface: pygame.Surface,
+    palette: Palette,
+    width: int,
+    height: int,
+    ground_height: float,
+    elapsed: float,
+    *,
+    x_ratio: float,
+    wall_color: Color,
+    scale: float = 1.0,
+    ruined: bool = False,
+    chimney_smoke: bool = False,
+    lantern: bool = False,
+) -> None:
+    """Draw one small building, shared by the cabin/stone-house/shelter/depot landmarks.
+
+    A single body with a pitched roof, a door, and a window, tuned by keyword
+    flags rather than four near-identical copies: `ruined` breaks the roofline
+    and knocks a gap in a wall (the "half-collapsed shelter"), `chimney_smoke`
+    adds a chimney with puffs rising and fading (the woodcutter's smoke), and
+    `lantern` hangs a warm glowing light by the door (the healer's lantern in
+    the mist). Colors derive from `wall_color` so each caller only picks a base
+    tone.
+    """
+    sky_height = height - ground_height
+    x = width * x_ratio
+    base_y = sky_height + ground_height * path_y_ratio(x_ratio)
+    wall_w = width * 0.1 * scale
+    wall_h = ground_height * 0.6 * scale
+    left = x - wall_w / 2
+    top = base_y - wall_h
+
+    roof_color = _darken(wall_color, 0.35)
+    # The wall body, then a door and a small window punched into it.
+    _pixel_rect(surface, wall_color, left, top, wall_w, wall_h)
+    if ruined:
+        # Knock a dark gap out of one upper corner so the wall reads as broken.
+        _pixel_rect(
+            surface, _darken(wall_color, 0.55), left + wall_w * 0.6, top, wall_w * 0.4, wall_h * 0.4
+        )
+    door_w = wall_w * 0.28
+    _pixel_rect(
+        surface,
+        _darken(wall_color, 0.5),
+        x - door_w / 2,
+        base_y - wall_h * 0.55,
+        door_w,
+        wall_h * 0.55,
+    )
+    window = _lighten(palette.accent, 0.2)
+    _pixel_rect(
+        surface, window, left + wall_w * 0.12, top + wall_h * 0.25, wall_w * 0.22, wall_h * 0.22
+    )
+
+    # The pitched roof: a triangle across the top, with a broken apex when ruined.
+    apex = (x, top - ground_height * 0.28 * scale)
+    if ruined:
+        # A caved-in roof: draw only the left half of the pitch, leaving the
+        # right side open to the sky.
+        pygame.draw.polygon(surface, roof_color, [(left - 4, top), apex, (x, top)])
+    else:
+        pygame.draw.polygon(surface, roof_color, [(left - 4, top), apex, (left + wall_w + 4, top)])
+
+    if chimney_smoke:
+        # A chimney on the roof, then a column of puffs rising from it, each
+        # drifting up and fading on its own looping cycle so smoke reads as
+        # continuously curling upward rather than a static shape.
+        chimney_x = left + wall_w * 0.7
+        chimney_y = top - ground_height * 0.16 * scale
+        _pixel_rect(
+            surface, roof_color, chimney_x, chimney_y, wall_w * 0.16, ground_height * 0.16 * scale
+        )
+        for i in range(4):
+            # Each puff's progress runs 0..1 on a loop, offset per puff so they
+            # are spaced out along the rising column.
+            prog = (elapsed * 0.4 + i * 0.25) % 1.0
+            puff_y = chimney_y - prog * ground_height * 0.7
+            puff_x = chimney_x + wall_w * 0.08 + math.sin(prog * 4 + i) * 6
+            radius = round((3 + prog * 7) * scale)
+            alpha = round(150 * (1 - prog))
+            smoke = pygame.Surface((radius * 2 + 2, radius * 2 + 2), pygame.SRCALPHA)
+            pygame.draw.circle(smoke, (235, 235, 235, alpha), (radius + 1, radius + 1), radius)
+            surface.blit(smoke, (puff_x - radius, puff_y - radius))
+
+    if lantern:
+        # A small warm glow hung beside the door — a soft halo plus a bright
+        # core, gently pulsing so it reads as a live flame in the mist.
+        pulse = 0.7 + 0.3 * math.sin(elapsed * 2.5)
+        lx = round(x + door_w)
+        ly = round(base_y - wall_h * 0.5)
+        for r, a in ((14, 60), (9, 110), (4, 220)):
+            glow = pygame.Surface((r * 2, r * 2), pygame.SRCALPHA)
+            pygame.draw.circle(glow, (255, 214, 130, round(a * pulse)), (r, r), r)
+            surface.blit(glow, (lx - r, ly - r))
+
+
+def _draw_cabin(
+    surface: pygame.Surface,
+    palette: Palette,
+    width: int,
+    height: int,
+    ground_height: float,
+    elapsed: float,
+) -> None:
+    """Draw a woodcutter's cabin in a clearing, smoke rising thin from its chimney."""
+    _draw_building(
+        surface,
+        palette,
+        width,
+        height,
+        ground_height,
+        elapsed,
+        x_ratio=0.66,
+        wall_color=_darken(palette.ground, 0.34),
+        chimney_smoke=True,
+    )
+
+
+def _draw_stone_house(
+    surface: pygame.Surface,
+    palette: Palette,
+    width: int,
+    height: int,
+    ground_height: float,
+    elapsed: float,
+) -> None:
+    """Draw a small stone house with a lit lantern by the door, for the healer in the mist."""
+    _draw_building(
+        surface,
+        palette,
+        width,
+        height,
+        ground_height,
+        elapsed,
+        x_ratio=0.66,
+        # A cool, pale stone tone rather than wood — the season ground pulled
+        # toward grey so it reads as stone in any season.
+        wall_color=_lerp_color(_lighten(palette.ground, 0.2), (150, 150, 156), 0.5),
+        lantern=True,
+    )
+
+
+def _draw_shelter(
+    surface: pygame.Surface,
+    palette: Palette,
+    width: int,
+    height: int,
+    ground_height: float,
+    elapsed: float,
+) -> None:
+    """Draw a small half-collapsed shelter, its roof caved in on one side."""
+    _draw_building(
+        surface,
+        palette,
+        width,
+        height,
+        ground_height,
+        elapsed,
+        x_ratio=0.66,
+        wall_color=_darken(palette.ground, 0.3),
+        scale=0.8,
+        ruined=True,
+    )
+
+
+def _draw_depot(
+    surface: pygame.Surface,
+    palette: Palette,
+    width: int,
+    height: int,
+    ground_height: float,
+    elapsed: float,
+) -> None:
+    """Draw a low, wide supply depot building, mostly buried in drifted snow."""
+    _draw_building(
+        surface,
+        palette,
+        width,
+        height,
+        ground_height,
+        elapsed,
+        x_ratio=0.64,
+        wall_color=_darken(palette.ground, 0.28),
+        scale=1.15,
+    )
+    # A low drift of snow banked against the base of the depot, so it reads as
+    # "buried in drifted snow" rather than a building on bare ground.
+    sky_height = height - ground_height
+    x = width * 0.64
+    base_y = sky_height + ground_height * path_y_ratio(0.64)
+    drift = pygame.Surface((int(width * 0.2), int(ground_height * 0.2)), pygame.SRCALPHA)
+    pygame.draw.ellipse(drift, (*_lighten(palette.ground, 0.35), 220), drift.get_rect())
+    surface.blit(drift, (x - width * 0.1, base_y - ground_height * 0.12))
+
+
+def _draw_market(
+    surface: pygame.Surface,
+    palette: Palette,
+    width: int,
+    height: int,
+    ground_height: float,
+    elapsed: float,
+) -> None:
+    """Draw a couple of market stalls with striped awnings flapping in the heat.
+
+    Each stall is two posts, a counter, and a scalloped striped awning whose
+    lower edge ripples on a slow sine — the "awnings flapping" the scene names,
+    the one bit of motion that says a market is busy without drawing a crowd.
+    """
+    sky_height = height - ground_height
+    post_color = _darken(palette.ground, 0.4)
+    stripe_a = _lerp_color(palette.accent, (196, 70, 60), 0.4)
+    stripe_b = _lighten(palette.panel, 0.1)
+
+    for stall_i, x_ratio in enumerate((0.52, 0.68)):
+        x = width * x_ratio
+        base_y = sky_height + ground_height * path_y_ratio(x_ratio)
+        stall_w = width * 0.11
+        post_h = ground_height * 0.62
+        left = x - stall_w / 2
+        top = base_y - post_h
+
+        # Posts and a counter board across them.
+        for px in (left, left + stall_w):
+            pygame.draw.line(
+                surface, post_color, (px, base_y), (px, top), max(2, round(width * 0.004))
+            )
+        counter_y = base_y - post_h * 0.35
+        _pixel_rect(surface, post_color, left, counter_y, stall_w, ground_height * 0.05)
+
+        # The awning: a striped band across the top whose bottom edge scallops
+        # and flaps. Each stripe is a quad from the straight top edge down to a
+        # bobbing point on the bottom edge.
+        segs = 6
+        awning_top = top - ground_height * 0.06
+        awning_drop = ground_height * 0.14
+        for s in range(segs):
+            sx0 = left + stall_w * s / segs
+            sx1 = left + stall_w * (s + 1) / segs
+            flap = math.sin(elapsed * 3.0 + stall_i * 1.5 + s * 0.9) * ground_height * 0.02
+            color = stripe_a if s % 2 == 0 else stripe_b
+            pygame.draw.polygon(
+                surface,
+                color,
+                [
+                    (sx0, awning_top),
+                    (sx1, awning_top),
+                    (sx1, awning_top + awning_drop + flap),
+                    ((sx0 + sx1) / 2, awning_top + awning_drop * 1.3 + flap),
+                    (sx0, awning_top + awning_drop + flap),
+                ],
+            )
+
+
+def _draw_dry_riverbed(
+    surface: pygame.Surface,
+    palette: Palette,
+    width: int,
+    height: int,
+    ground_height: float,
+    elapsed: float,
+) -> None:
+    """Draw a cracked, dried-out riverbed with only a thin muddy trickle left.
+
+    A wide band of cracked mud follows the path curve where a river once ran,
+    veined with dry cracks, and a thin, barely-moving trickle of muddy water
+    threads down its middle — "the water reduced to a thin, muddy trickle".
+    """
+    sky_height = height - ground_height
+    half = ground_height * 0.11
+    steps = 40
+    mud = _darken(palette.ground, 0.22)
+
+    def center_y(t: float) -> float:
+        return sky_height + ground_height * path_y_ratio(t)
+
+    # The dry bed: a wide muddy band along the old watercourse.
+    top_edge = [(width * i / steps, center_y(i / steps) - half) for i in range(steps + 1)]
+    bottom_edge = [(width * i / steps, center_y(i / steps) + half) for i in range(steps + 1)]
+    pygame.draw.polygon(surface, mud, [*top_edge, *reversed(bottom_edge)])
+
+    # Dry cracks: short branching lines scattered across the bed, fixed by a
+    # seeded rng so they don't shimmer frame to frame like the water shimmer.
+    crack = _darken(mud, 0.25)
+    rng = random.Random(7)
+    for _ in range(26):
+        t = rng.random()
+        cx = width * t
+        cy = center_y(t) + rng.uniform(-half * 0.8, half * 0.8)
+        angle = rng.uniform(0, math.pi)
+        length = rng.uniform(6, 16)
+        end = (cx + math.cos(angle) * length, cy + math.sin(angle) * length)
+        pygame.draw.line(surface, crack, (cx, cy), end, 1)
+
+    # The last of the water: a thin, dark trickle wobbling gently down the
+    # center, far narrower than the stream's full ribbon.
+    trickle = _lerp_color(mud, (70, 90, 96), 0.5)
+    pts = [
+        (width * i / steps, center_y(i / steps) + math.sin(elapsed * 0.8 + i * 0.5) * 2)
+        for i in range(steps + 1)
+    ]
+    pygame.draw.lines(surface, trickle, False, pts, max(2, round(ground_height * 0.02)))
+
+
+def _draw_frozen_lake(
+    surface: pygame.Surface,
+    palette: Palette,
+    width: int,
+    height: int,
+    ground_height: float,
+    elapsed: float,
+) -> None:
+    """Draw a pale frozen lake with a slow sheen and a line of footprints crossing it.
+
+    A broad sheet of ice sits across the foreground; a soft highlight drifts
+    over it so the surface reads as glassy rather than flat white, and a line
+    of paired footprints recedes across it — "footprints of someone else
+    already crossing it".
+    """
+    sky_height = height - ground_height
+    half = ground_height * 0.16
+    steps = 40
+    # A cool blue-white, tinted away from the winter ground's plain grey so the
+    # ice reads as a frozen sheet rather than just more snow.
+    ice = _lerp_color(_lighten(palette.ground, 0.35), (198, 220, 236), 0.55)
+
+    def center_y(t: float) -> float:
+        return sky_height + ground_height * path_y_ratio(t)
+
+    # The ice sheet: a wide, pale band along the crossing, with a darker cool
+    # shoreline stroked along both edges so it stands out from the snowy banks.
+    top_edge = [(width * i / steps, center_y(i / steps) - half) for i in range(steps + 1)]
+    bottom_edge = [(width * i / steps, center_y(i / steps) + half) for i in range(steps + 1)]
+    pygame.draw.polygon(surface, ice, [*top_edge, *reversed(bottom_edge)])
+    shore = _darken(ice, 0.22)
+    pygame.draw.aalines(surface, shore, False, top_edge)
+    pygame.draw.aalines(surface, shore, False, bottom_edge)
+
+    # A drifting sheen: a soft, brighter band gliding slowly across the ice.
+    sheen = _lighten(ice, 0.5)
+    band_center = (math.sin(elapsed * 0.3) * 0.5 + 0.5) * width
+    sheen_surf = pygame.Surface((width, int(half * 2)), pygame.SRCALPHA)
+    for i in range(steps + 1):
+        x = width * i / steps
+        dist = abs(x - band_center) / (width * 0.18)
+        alpha = max(0, round(120 * (1 - dist)))
+        if alpha:
+            pygame.draw.line(
+                sheen_surf, (*sheen, alpha), (x, 0), (x, half * 2), max(1, round(width / steps) + 1)
+            )
+    surface.blit(sheen_surf, (0, center_y(0.5) - half))
+
+    # A line of footprints receding across the ice: paired dark ovals that
+    # shrink into the distance as they cross, alternating left/right.
+    prints = _darken(ice, 0.3)
+    for i in range(9):
+        t = 0.28 + i * 0.05
+        x = width * t
+        y = center_y(t) + (i % 2) * 4 - 2
+        size = max(2, round(5 - i * 0.3))
+        pygame.draw.ellipse(surface, prints, pygame.Rect(x, y, size * 2, size))
+
+
+# Maps each landmark name to its draw routine. Every drawer takes the same
+# (surface, palette, width, height, ground_height, elapsed) signature so
+# `draw_landmark` can call any of them uniformly. A name here must also be in
+# `stages.VALID_LANDMARKS`; names validated in content but not yet given a
+# drawer are simply skipped by `draw_landmark`.
+_LANDMARK_DRAWERS: dict[str, object] = {
+    "bridge": _draw_bridge,
+    "stream": _draw_stream,
+    "lone_tree": _draw_lone_tree,
+    "orchard": _draw_orchard,
+    "cabin": _draw_cabin,
+    "stone_house": _draw_stone_house,
+    "shelter": _draw_shelter,
+    "depot": _draw_depot,
+    "market": _draw_market,
+    "dry_riverbed": _draw_dry_riverbed,
+    "frozen_lake": _draw_frozen_lake,
+}
 
 
 def _lerp_color(a: Color, b: Color, t: float) -> Color:

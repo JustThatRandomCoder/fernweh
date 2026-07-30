@@ -353,6 +353,27 @@ walking scenery doesn't fit the moment a journey ends. `_draw` mirrors this bran
 of at a constant robotic speed) and returning early — the text panel, buttons, and keepsakes
 never draw while a passage is on screen.
 
+**Rest passages (the party seated on a bench).** Not every between-stage beat is a walk. A
+choice can set a `rest` flag in `content/stages.json` (the sit/rest/make-camp options — "Sit on
+the bank a while before crossing", "Rest in the shade", etc.); `stages._parse_choice` reads it
+onto `Choice.rest`, defaulting `False` for the overwhelming majority of "keep walking" choices.
+When the player picks a rest choice, `Game._handle_choice_click` passes `resting=choice.rest`
+into `_start_passage`, which records it on `Game._passage_resting`. The passage timer, skip, and
+early-return `_update`/`_draw` branching are all identical to a walk — only what gets drawn
+differs: `Game._draw_passage` dispatches to `_draw_rest_passage`, which seats the traveler and
+every companion in a row on a single bench (`scenes.draw_bench` + `scenes.draw_person_seated`)
+instead of walking them along the path. The seated row preserves recruitment order left to
+right (traveler first), reuses the exact same per-companion appearance cache the walk uses so a
+companion looks identical sitting or walking, and staggers each sitter's slow idle-breathing
+phase the way the walkers stagger gait offsets. `scenes.draw_bench` sizes the bench to span the
+row (with a minimum width so a solo traveler still gets a real bench) and derives its wood tone
+from the season palette's `ground`, so it sits naturally in any season; the seat height
+(`REST_SEAT_Y_RATIO`) is tuned so the seated figures' hanging shins land their feet on the drawn
+path, the same grounding the walking figure gets from `path_y_ratio`. `draw_person_seated` is a
+seated front pose built from the same `_pixel_rect` blocks as `draw_traveler`: hips on the seat,
+torso and head upright, arms resting at the sides, and shins dropping off the seat's front edge
+to plant the feet — the read that says "sitting" rather than "standing".
+
 **NPC portraits (`scenes.draw_portrait`, `stages.SceneCharacter`).** A stage whose situation
 describes a specific person (the woman at the well, the trader at the market) can declare an
 optional `character` block in `content/stages.json`; `stages._parse_character` validates it
@@ -386,6 +407,38 @@ reflows around the portrait rather than either overlapping it or leaving unused 
 with no NPC. `_sync_ending` explicitly clears `_stage_character` to `None`, since reaching the
 ending doesn't necessarily go through `_sync_stage` (a mid-stage failure can end the game without
 one) and a stale portrait would otherwise persist onto the ending screen.
+
+**Scene landmarks (`scenes.draw_landmark`, `stages.VALID_LANDMARKS`).** Where the portrait
+system draws the *person* a situation names, the landmark system draws the *place* it names, so
+the picture matches the words: the footbridge over the gorge, the shallow stream, the lone tree
+on the plain, the market stalls, the dry riverbed, the orchard, the woodcutter's cabin, the
+healer's stone house, the half-collapsed shelter, the buried supply depot, the frozen lake.
+A stage's `scene` may declare an optional `landmark` string; `stages._parse_landmark` validates
+it against `VALID_LANDMARKS` and stores it on `Stage.landmark` (`None` on the many stages the
+generic season landscape already conveys — a trailhead, a harvested field, a forest track).
+This is the same logic/rendering split the character vocabulary uses: the pure `stages.py` only
+knows the *name*, and `scenes.py` owns a registry, `_LANDMARK_DRAWERS`, mapping each name to a
+small draw routine of uniform `(surface, palette, width, height, ground_height, elapsed)`
+signature — adding a landmark is one function plus one registry entry, and `draw_scene`/the game
+loop never change. `draw_scene` takes an optional `landmark` and, when set, calls `draw_landmark`
+after the path but before the foreground trees, so a landmark sits in the mid-ground (trees
+nearest the viewer still overlap it) and under the edge vignette like everything else. Each
+drawer is procedural pygame primitives keyed off the season `palette` (no art assets, same as
+the rest of the scene) and animated where the text implies motion: the bridge deck groans on a
+slow vertical sway, the stream and the riverbed's last trickle shimmer, the cabin's chimney
+puffs rise and fade on a loop, the healer's lantern pulses, the market awnings flap, the frozen
+lake's sheen drifts. The four buildings (cabin, stone house, shelter, depot) share one
+`_draw_building` helper tuned by keyword flags (`ruined`, `chimney_smoke`, `lantern`, `scale`,
+`wall_color`) rather than four near-identical copies.
+
+`Game` tracks two landmark slots so the feature persists correctly across a passage. `_stage_landmark`
+is set from `stage.landmark` each `_sync_stage` and cleared in `_sync_ending` (the journey's end
+is an open field, not any one stage's landmark). `_passage_landmark` captures `_stage_landmark`
+when `_start_passage` fires, so the walk or rest sequence keeps the just-left stage's scenery on
+screen — you actually watch the traveler cross the bridge or wade the stream, rather than the
+landmark blanking the instant the choice resolves. `_draw` computes which of the two (or `None`,
+on the menu) to hand `draw_scene` in one place, keeping the single background-draw call the only
+place the scene is rendered.
 
 **A companion's portrait is who shows up on the road.** The four stages that offer a
 companion (Mira, Sable, Talia, Emet, Wren — five characters, one is declined depending on
