@@ -179,6 +179,83 @@
       ]
     },
     {
+      "id": "spring_millpond",
+      "season": "spring",
+      "role": "middle",
+      "scene": {
+        "description": "A watermill beside a pond swollen with spring meltwater, its wheel still.",
+        "weather": "clear"
+      },
+      "situation": "The mill stands idle, the miller nowhere in sight. A sack of fresh-milled flour leans against the door, and the pond behind it is high and bright with snowmelt.",
+      "choices": [
+        {
+          "id": "spring_millpond_pay",
+          "text": "Leave a coin on the sill and take a measure of flour.",
+          "effects": {
+            "supplies": 8,
+            "energy": -1
+          },
+          "outcome": "You take only what seems fair and leave more than the flour is worth. The wheel creaks once behind you, as if in thanks."
+        },
+        {
+          "id": "spring_millpond_wait",
+          "text": "Wait a while for the miller to return.",
+          "effects": {
+            "energy": -4,
+            "supplies": -1
+          },
+          "memory": "A miller who never came, and the patient hour spent waiting by still water.",
+          "outcome": "Nobody comes. When the light shifts you give up waiting, oddly reluctant to leave the quiet of the place."
+        },
+        {
+          "id": "spring_millpond_pass",
+          "text": "Leave the mill to itself and walk on.",
+          "effects": {
+            "energy": -3
+          },
+          "outcome": "The pond slides out of view behind the trees, and the road picks up the sound of running water for a while yet."
+        }
+      ]
+    },
+    {
+      "id": "spring_shrine",
+      "season": "spring",
+      "role": "middle",
+      "scene": {
+        "description": "A small roadside shrine, its stones furred green with moss, under dripping trees.",
+        "weather": "drizzle"
+      },
+      "situation": "A little shrine sits back from the road, its stones soft with moss. The stubs of old candles crowd the ledge, left by travelers who passed this way before you.",
+      "choices": [
+        {
+          "id": "spring_shrine_offer",
+          "text": "Leave a small offering and a moment's quiet.",
+          "effects": {
+            "supplies": -2
+          },
+          "memory": "A candle-stub lit at a shrine whose saint you never learned the name of.",
+          "outcome": "You don't know the prayer that belongs here, so you just stand a moment in the drip and the green. It seems to be enough."
+        },
+        {
+          "id": "spring_shrine_shelter",
+          "text": "Shelter under the shrine's eave until the drizzle eases.",
+          "effects": {
+            "energy": 6,
+            "supplies": -1
+          },
+          "outcome": "The rain finds everything but the narrow dry strip beneath the eave. You wait it out with the quiet company of the candle stubs."
+        },
+        {
+          "id": "spring_shrine_press",
+          "text": "Bow your head once and press on through the wet.",
+          "effects": {
+            "energy": -6
+          },
+          "outcome": "The drizzle keeps up the whole way, but the shrine stays with you a mile or two, the way small kindnesses do."
+        }
+      ]
+    },
+    {
       "id": "spring_4",
       "season": "spring",
       "role": "closer",

@@ -49,19 +49,25 @@ def _choice(**overrides) -> Choice:
 
 
 def test_loads_real_content_file() -> None:
+    # The pool holds at least a full journey's worth of stages (and generally
+    # more, since extra middles are what make journeys vary).
     stages = load_stages()
-    assert len(stages) == 20
+    assert len(stages) >= STAGES_PER_SEASON * len(SEASONS)
     assert stages[0].id == "spring_0"
     assert stages[0].season == "spring"
     assert stages[0].role == "opener"
 
 
-def test_full_content_has_five_stages_per_season() -> None:
+def test_every_season_pool_can_build_a_journey() -> None:
+    # Each season must supply exactly one opener, one closer, and enough
+    # middles to fill the slots between them — the invariant build_journey needs.
     stages = load_stages()
-    season_counts: dict[str, int] = {}
-    for stage in stages:
-        season_counts[stage.season] = season_counts.get(stage.season, 0) + 1
-    assert season_counts == {"spring": 5, "summer": 5, "autumn": 5, "winter": 5}
+    for season in SEASONS:
+        season_stages = [s for s in stages if s.season == season]
+        roles = [s.role for s in season_stages]
+        assert roles.count("opener") == 1
+        assert roles.count("closer") == 1
+        assert roles.count("middle") >= MIDDLE_SLOTS_PER_SEASON
 
 
 def test_companion_ids_are_unique_across_content() -> None:
