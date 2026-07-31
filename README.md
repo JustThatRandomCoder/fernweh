@@ -63,6 +63,17 @@ automatically (with a short status message while it does), then opens the window
 starts with a click-through intro (also reachable later by pressing `H`). Every run after
 that skips straight to launching the game.
 
+To test that first-run experience again as if you'd only just cloned the repo, reset with:
+
+```bash
+python3 fresh-start.py            # asks before removing anything
+python3 fresh-start.py --dry-run  # just show what it would remove
+```
+
+This removes the local virtual environment (the installed dependencies), all saved games,
+and generated caches — nothing tracked by git — so the next launch reruns the whole setup
+from scratch.
+
 ## Running tests
 
 ```bash
