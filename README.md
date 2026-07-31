@@ -87,11 +87,12 @@ decisions behind each system.
 
 ## Easy start (for non-coders)
 
-Don't want to touch a terminal? You don't have to. Once you have the game's folder on
-your Mac:
+Don't want to touch a terminal? You don't have to. Once you have the game's folder:
 
 1. Open the **`fernweh`** folder.
-2. Double-click the file named **`START-GAME-FERNWEH`**.
+2. Double-click the **`START-GAME-FERNWEH`** file:
+   - On **Mac**, use `START-GAME-FERNWEH.command`.
+   - On **Windows**, use `START-GAME-FERNWEH.bat`.
 3. The first time, a window opens and shows it setting things up — this can take a
    minute while it installs everything the game needs. Just leave it open.
 4. When it's done, the game opens on its own. Every time after that, it starts right away.
@@ -101,17 +102,19 @@ That's it. No commands, no setup.
 <details>
 <summary>A couple of things that might come up</summary>
 
-- **"macOS cannot verify the developer" / it won't open.** Right-click (or Control-click)
-  the `START-GAME-FERNWEH` file, choose **Open**, then click **Open** again in the dialog.
-  You only need to do this once.
+- **(Mac) "macOS cannot verify the developer" / it won't open.** Right-click (or
+  Control-click) the `START-GAME-FERNWEH.command` file, choose **Open**, then click **Open**
+  again in the dialog. You only need to do this once.
+- **(Windows) a blue "Windows protected your PC" box.** Click **More info**, then **Run
+  anyway**. You only need to do this once.
 - **It says Python isn't installed.** The launcher will tell you and link to
-  [python.org/downloads](https://www.python.org/downloads/). Install Python 3, then
-  double-click `START-GAME-FERNWEH` again.
+  [python.org/downloads](https://www.python.org/downloads/). Install Python 3 (on Windows,
+  tick **Add Python to PATH** during setup), then double-click `START-GAME-FERNWEH` again.
 - **How do I get the folder in the first place?** Download it from the project's GitHub page
   (the green **Code** button → **Download ZIP**), then unzip it. The `START-GAME-FERNWEH`
-  file is inside.
+  files are inside.
 
-> This one-click launcher is for macOS. On Windows or Linux, use the terminal steps under
+> The one-click launchers cover macOS and Windows. On Linux, use the terminal steps under
 > [Installation & running](#installation--running) above.
 
 </details>
