@@ -54,9 +54,12 @@ Requires Python 3.11+. Nothing else — no manual virtual environment, no manual
 
 ```bash
 git clone https://github.com/JustThatRandomCoder/fernweh.git fernweh
-cd fernweh
+cd fernweh/fernweh-game
 python3 fernweh.py
 ```
+
+(The game code lives in the `fernweh-game/` subfolder; only the one-click startup files
+sit at the top level.)
 
 The first run sets up a local virtual environment and installs dependencies
 automatically (with a short status message while it does), then opens the window and
@@ -66,6 +69,7 @@ that skips straight to launching the game.
 To test that first-run experience again as if you'd only just cloned the repo, reset with:
 
 ```bash
+cd fernweh-game
 python3 fresh-start.py            # asks before removing anything
 python3 fresh-start.py --dry-run  # just show what it would remove
 ```
@@ -77,13 +81,15 @@ from scratch.
 ## Running tests
 
 ```bash
+cd fernweh-game
 python3 -m venv .venv
 source .venv/bin/activate    # Windows: .venv\Scripts\activate
 pip install -r requirements-dev.txt
 pytest tests/ -v
 ```
 
-See [`TESTING.md`](TESTING.md) for the full setup walkthrough and what's covered.
+See [`fernweh-game/TESTING.md`](fernweh-game/TESTING.md) for the full setup walkthrough and
+what's covered.
 
 ## Tech & architecture
 
@@ -92,9 +98,9 @@ with the game's rules (resources, stage progression, afflictions, ending generat
 pure Python with zero `pygame` imports, so the whole logic layer is unit-tested headlessly.
 All visuals are procedural pygame primitives — gradients, particles, and a small hand-rolled
 tweening module — no image assets. Narrative content lives in
-[`content/stages.json`](content/stages.json), not hardcoded in engine code. See
-[`DOCUMENTATION.md`](DOCUMENTATION.md) for the full technical writeup, including the
-decisions behind each system.
+[`fernweh-game/content/stages.json`](fernweh-game/content/stages.json), not hardcoded in
+engine code. See [`fernweh-game/DOCUMENTATION.md`](fernweh-game/DOCUMENTATION.md) for the
+full technical writeup, including the decisions behind each system.
 
 ## Easy start (for non-coders)
 
