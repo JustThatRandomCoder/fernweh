@@ -9,9 +9,10 @@
 # just opens straight into the game. All the real work is done by fernweh.py,
 # which this script simply finds a Python for and runs from the game's folder.
 
-# Always work from the folder this file lives in, no matter where it's launched
-# from — so double-clicking works regardless of the current directory.
-cd "$(dirname "${BASH_SOURCE[0]}")" || exit 1
+# Step into the game folder next to this launcher, no matter where it's launched
+# from — the code (fernweh.py, its environment) all lives in fernweh-game/, and
+# only the startup files sit out here at the top level.
+cd "$(dirname "${BASH_SOURCE[0]}")/fernweh-game" || exit 1
 
 # A clean screen and a friendly banner, so a non-technical player sees
 # something calm and intentional rather than a bare terminal prompt.

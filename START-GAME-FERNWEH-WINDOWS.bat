@@ -7,9 +7,10 @@ rem after that it opens straight into the game. All the real work is done by
 rem fernweh.py, which this script just finds a Python for and runs.
 setlocal
 
-rem Always work from the folder this file lives in, whatever the current
-rem directory happens to be when it's double-clicked.
-cd /d "%~dp0"
+rem Step into the game folder next to this launcher — the code (fernweh.py, its
+rem environment) all lives in fernweh-game\, and only the startup files sit out
+rem here at the top level. %~dp0 ends with a backslash, so this appends cleanly.
+cd /d "%~dp0fernweh-game"
 
 cls
 echo ==================================================
