@@ -54,25 +54,42 @@ Requires Python 3.11+. Nothing else — no manual virtual environment, no manual
 
 ```bash
 git clone https://github.com/JustThatRandomCoder/fernweh.git fernweh
-cd fernweh
+cd fernweh/fernweh-game
 python3 fernweh.py
 ```
+
+(The game code lives in the `fernweh-game/` subfolder; only the one-click startup files
+sit at the top level.)
 
 The first run sets up a local virtual environment and installs dependencies
 automatically (with a short status message while it does), then opens the window and
 starts with a click-through intro (also reachable later by pressing `H`). Every run after
 that skips straight to launching the game.
 
+To test that first-run experience again as if you'd only just cloned the repo, reset with:
+
+```bash
+cd fernweh-game
+python3 fresh-start.py            # asks before removing anything
+python3 fresh-start.py --dry-run  # just show what it would remove
+```
+
+This removes the local virtual environment (the installed dependencies), all saved games,
+and generated caches — nothing tracked by git — so the next launch reruns the whole setup
+from scratch.
+
 ## Running tests
 
 ```bash
+cd fernweh-game
 python3 -m venv .venv
 source .venv/bin/activate    # Windows: .venv\Scripts\activate
 pip install -r requirements-dev.txt
 pytest tests/ -v
 ```
 
-See [`TESTING.md`](TESTING.md) for the full setup walkthrough and what's covered.
+See [`fernweh-game/TESTING.md`](fernweh-game/TESTING.md) for the full setup walkthrough and
+what's covered.
 
 ## Tech & architecture
 
@@ -81,9 +98,42 @@ with the game's rules (resources, stage progression, afflictions, ending generat
 pure Python with zero `pygame` imports, so the whole logic layer is unit-tested headlessly.
 All visuals are procedural pygame primitives — gradients, particles, and a small hand-rolled
 tweening module — no image assets. Narrative content lives in
-[`content/stages.json`](content/stages.json), not hardcoded in engine code. See
-[`DOCUMENTATION.md`](DOCUMENTATION.md) for the full technical writeup, including the
-decisions behind each system.
+[`fernweh-game/content/stages.json`](fernweh-game/content/stages.json), not hardcoded in
+engine code. See [`fernweh-game/DOCUMENTATION.md`](fernweh-game/DOCUMENTATION.md) for the
+full technical writeup, including the decisions behind each system.
+
+## Easy start (for non-coders)
+
+Don't want to touch a terminal? You don't have to. Once you have the game's folder:
+
+1. Open the **`fernweh`** folder.
+2. Double-click the startup file for your computer:
+   - On **Mac**, use **`START-GAME-FERNWEH-MAC.command`**.
+   - On **Windows**, use **`START-GAME-FERNWEH-WINDOWS.bat`**.
+3. The first time, a window opens and shows it setting things up — this can take a
+   minute while it installs everything the game needs. Just leave it open.
+4. When it's done, the game opens on its own. Every time after that, it starts right away.
+
+That's it. No commands, no setup.
+
+<details>
+<summary>A couple of things that might come up</summary>
+
+- **(Mac) "macOS cannot verify the developer" / it won't open.** Right-click (or
+  Control-click) the `START-GAME-FERNWEH-MAC.command` file, choose **Open**, then click
+  **Open** again in the dialog. You only need to do this once.
+- **(Windows) a blue "Windows protected your PC" box.** Click **More info**, then **Run
+  anyway**. You only need to do this once.
+- **It says Python isn't installed.** The launcher will tell you and link to
+  [python.org/downloads](https://www.python.org/downloads/). Install Python 3 (on Windows,
+  tick **Add Python to PATH** during setup), then double-click the startup file again.
+- **How do I get the folder in the first place?** Download it from the project's GitHub page
+  (the green **Code** button → **Download ZIP**), then unzip it. The startup files are inside.
+
+> The one-click launchers cover macOS and Windows. On Linux, use the terminal steps under
+> [Installation & running](#installation--running) above.
+
+</details>
 
 ## License
 

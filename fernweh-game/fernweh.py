@@ -11,6 +11,8 @@ import hashlib
 import os
 import subprocess
 import sys
+import threading
+import time
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent
@@ -18,6 +20,68 @@ VENV_DIR = REPO_ROOT / ".venv"
 REQUIREMENTS_FILE = REPO_ROOT / "requirements.txt"
 INSTALL_MARKER = VENV_DIR / ".requirements.sha256"
 VENV_MISSING_HINTS = ("ensurepip", "No module named venv", "python3-venv")
+
+# Width of the first-run progress bar, in characters, and the ASCII glyphs it's
+# drawn from. ASCII (rather than Unicode block characters) so it renders
+# identically in a Windows cmd window and a macOS Terminal without codepage
+# surprises. The eased fill approaches — but never quite reaches — full until
+# the underlying step actually finishes, so the bar reads as honest progress
+# even though pip/venv don't report a real percentage.
+_BAR_WIDTH = 30
+_BAR_FILLED = "#"
+_BAR_EMPTY = "-"
+# Seconds for the eased fill to cover ~half the remaining distance to 95% — a
+# small value makes the bar move briskly at first and then ease off, which is
+# what a setup step that "could take a minute" tends to feel like.
+_BAR_HALFLIFE = 2.5
+
+
+def _draw_progress(label: str, fraction: float, *, done: bool = False) -> None:
+    """Redraw the single-line progress bar in place for `label` at `fraction` [0, 1]."""
+    fraction = max(0.0, min(1.0, fraction))
+    filled = round(_BAR_WIDTH * fraction)
+    bar = _BAR_FILLED * filled + _BAR_EMPTY * (_BAR_WIDTH - filled)
+    percent = round(fraction * 100)
+    # `\r` returns to the start of the line so each frame overwrites the last;
+    # only the finished frame ends the line so the bar stays put afterward.
+    ending = "  done\n" if done else ""
+    sys.stdout.write(f"\r  {label}  [{bar}] {percent:3d}%{ending}")
+    sys.stdout.flush()
+
+
+def _run_with_progress(cmd: list[str], label: str) -> tuple[int, str, str]:
+    """Run `cmd`, animating a progress bar while it works; return (returncode, stdout, stderr).
+
+    The subprocess output is drained on a background thread (via `communicate`,
+    so a chatty step can never deadlock on a full pipe buffer), while the main
+    thread animates the bar until that thread finishes. When stdout isn't a
+    real terminal (e.g. output is piped to a file), the animation is skipped in
+    favor of a single plain line, so logs don't fill with carriage returns.
+    """
+    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    captured: dict[str, str] = {}
+
+    def _drain() -> None:
+        captured["out"], captured["err"] = process.communicate()
+
+    worker = threading.Thread(target=_drain)
+    worker.start()
+
+    if sys.stdout.isatty():
+        start = time.monotonic()
+        while worker.is_alive():
+            elapsed = time.monotonic() - start
+            # Ease toward 0.95 and hold there — the jump to 100% only happens
+            # once the step has genuinely completed, below.
+            fraction = 0.95 * (1 - 0.5 ** (elapsed / _BAR_HALFLIFE))
+            _draw_progress(label, fraction)
+            time.sleep(0.1)
+        _draw_progress(label, 1.0, done=True)
+    else:
+        print(f"  {label}...", flush=True)
+
+    worker.join()
+    return process.returncode, captured.get("out", ""), captured.get("err", "")
 
 
 def _venv_python() -> Path:
@@ -33,12 +97,11 @@ def _fail(message: str) -> None:
 
 
 def _create_venv() -> None:
-    print("Setting up Fernweh for the first time...", flush=True)
+    print("\nSetting up Fernweh for the first time — this only happens once.\n", flush=True)
     try:
-        result = subprocess.run(
+        returncode, _stdout, stderr = _run_with_progress(
             [sys.executable, "-m", "venv", str(VENV_DIR)],
-            capture_output=True,
-            text=True,
+            "Preparing a private space for the game",
         )
     except FileNotFoundError:
         _fail(
@@ -48,10 +111,10 @@ def _create_venv() -> None:
         )
         return
 
-    if result.returncode == 0:
+    if returncode == 0:
         return
 
-    stderr = result.stderr.strip()
+    stderr = stderr.strip()
     if any(hint in stderr for hint in VENV_MISSING_HINTS):
         _fail(
             "It looks like the `venv` module is missing.\n"
@@ -83,20 +146,22 @@ def _dependencies_up_to_date() -> bool:
 
 
 def _install_dependencies() -> None:
-    print("Installing dependencies...", flush=True)
-    result = subprocess.run(
+    returncode, _stdout, stderr = _run_with_progress(
         [str(_venv_python()), "-m", "pip", "install", "-q", "-r", str(REQUIREMENTS_FILE)],
-        capture_output=True,
-        text=True,
+        "Installing everything the game needs",
     )
-    if result.returncode != 0:
+    if returncode != 0:
         _fail(
-            f"Installing dependencies failed:\n\n{result.stderr.strip()}\n\n"
+            f"Installing dependencies failed:\n\n{stderr.strip()}\n\n"
             "Try running:\n"
             f"  source {VENV_DIR}/bin/activate && pip install -r requirements.txt\n"
             "to see the full error and fix it manually."
         )
     INSTALL_MARKER.write_text(_requirements_hash())
+    # A parting line so the last thing before the window opens is a clear
+    # "all set", not a bare progress bar frozen at 100%.
+    if sys.stdout.isatty():
+        print("\nReady — opening Fernweh...\n", flush=True)
 
 
 def _running_inside_venv() -> bool:
