@@ -1,6 +1,7 @@
 #!/bin/bash
 #
-# One-click launcher for Fernweh — for people who don't want to touch a terminal.
+# One-click launcher for Fernweh on macOS — for people who don't want to touch a
+# terminal. Its Windows twin is START-GAME-FERNWEH-WINDOWS.bat.
 #
 # Double-click this file in Finder. The very first time, it quietly builds a
 # little private Python environment and installs everything the game needs
@@ -40,7 +41,7 @@ if [ -z "$PYTHON" ]; then
   echo ""
   echo "  1. Open https://www.python.org/downloads/ in your browser"
   echo "  2. Download and install Python 3 (the big yellow button)"
-  echo "  3. Double-click this START-GAME-FERNWEH file again"
+  echo "  3. Double-click START-GAME-FERNWEH-MAC again"
   echo ""
   read -n 1 -s -r -p "Press any key to close this window."
   echo ""

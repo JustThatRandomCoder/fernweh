@@ -1,6 +1,6 @@
 @echo off
 rem One-click launcher for Fernweh on Windows — the twin of the macOS
-rem START-GAME-FERNWEH.command file. Double-click it in File Explorer. The first
+rem START-GAME-FERNWEH-MAC.command file. Double-click it in File Explorer. The first
 rem time, it builds a small private Python environment and installs everything
 rem the game needs (this can take a minute — that's the "loading"); every time
 rem after that it opens straight into the game. All the real work is done by
@@ -35,7 +35,7 @@ if not defined PYTHON (
   echo.
   echo   1. Open https://www.python.org/downloads/ in your browser
   echo   2. Download and install Python 3 ^(tick "Add Python to PATH" during setup^)
-  echo   3. Double-click START-GAME-FERNWEH again
+  echo   3. Double-click START-GAME-FERNWEH-WINDOWS again
   echo.
   pause
   exit /b 1
